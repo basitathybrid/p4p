@@ -203,34 +203,171 @@ button {
   backdrop-filter: blur(6px);
 }
 
-.role-switcher {
-  display: inline-flex;
-  gap: 8px;
-  background: #edf3ff;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 4px;
-}
-
-.switch-btn {
-  border: none;
-  background: transparent;
-  color: var(--muted);
-  font-weight: 600;
-  padding: 8px 12px;
-  border-radius: 8px;
-}
-
-.switch-btn.selected {
-  background: #ffffff;
-  color: var(--blue-800);
-  box-shadow: 0 2px 8px rgba(32, 79, 168, 0.08);
-}
-
 .topbar-actions {
   display: flex;
   align-items: center;
   gap: 16px;
+}
+
+.signup-shell {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 32px 16px;
+  background: linear-gradient(180deg, #edf4ff 0%, #f3f5f9 100%);
+}
+
+.signup-card {
+  width: min(860px, 100%);
+  background: rgba(255,255,255,0.96);
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  box-shadow: var(--shadow);
+  padding: 28px;
+}
+
+.signup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.eyebrow {
+  margin: 0 0 8px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--blue-700);
+}
+
+.signup-header h1 {
+  margin: 0;
+  font-size: clamp(2rem, 3vw, 2.6rem);
+  letter-spacing: -0.05em;
+}
+
+.signup-form,
+.otp-form,
+.locked-state,
+.success-state {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.field-row {
+  display: grid;
+  gap: 16px;
+}
+
+.field-row.two-up {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.signup-form label,
+.otp-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.signup-form input,
+.otp-input {
+  height: 46px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--text);
+  padding: 0 14px;
+  font: inherit;
+}
+
+.signup-form input:focus,
+.otp-input:focus {
+  outline: 2px solid rgba(58, 122, 255, 0.2);
+  border-color: var(--blue-500);
+}
+
+.signup-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-top: 6px;
+}
+
+.primary-btn,
+.secondary-btn {
+  border: none;
+  border-radius: 12px;
+  padding: 12px 18px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.primary-btn {
+  background: linear-gradient(135deg, #0d4d9a 0%, #1763d3 100%);
+  color: white;
+}
+
+.secondary-btn {
+  background: #edf4ff;
+  color: var(--blue-800);
+}
+
+.status-banner {
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-weight: 600;
+  border: 1px solid transparent;
+}
+
+.status-banner.success {
+  background: var(--green-soft);
+  border-color: rgba(43,182,115,0.18);
+  color: #0d7a48;
+}
+
+.status-banner.error {
+  background: var(--red-soft);
+  border-color: rgba(230,85,85,0.15);
+  color: #b63d3d;
+}
+
+.otp-label {
+  margin: 0;
+  color: var(--muted);
+  font-size: 1rem;
+}
+
+.otp-input {
+  width: min(260px, 100%);
+  text-align: center;
+  font-size: 1.7rem;
+  letter-spacing: 0.35em;
+  padding-left: 12px;
+}
+
+.locked-state,
+.success-state {
+  padding-top: 8px;
+}
+
+.locked-state h2,
+.success-state h2 {
+  margin: 0;
+  font-size: 1.7rem;
+}
+
+.locked-state p,
+.success-state p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.6;
 }
 
 .header-icon {

@@ -1,27 +1,217 @@
+import { useEffect, useMemo, useState } from 'react'
 import roles, { tierMap } from '../../data/roles'
 import { AppLayout } from '../layout/AppLayout'
 import { Icon, StatCard, StatusBadge } from '../ui/Icon'
 
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+const SUPERVISOR_HEADERS = {
+  'Content-Type': 'application/json',
+  'x-user-role': 'supervisor',
+}
+
+const emptyDetails = {
+  name: '',
+  phone: '',
+  email: '',
+  playerMobileId: '',
+  facebook: '',
+  instagram: '',
+  telegram: '',
+  status: 'Pending Review',
+}
+
+function formatPhone(phone) {
+  if (!phone) return ''
+  return phone.startsWith('+') ? phone : `+${phone}`
+}
+
+function formatSubmittedAt(value) {
+  if (!value) return 'Submitted recently'
+  return `Submitted on ${new Date(value).toLocaleString()}`
+}
+
 function SupervisorTable() {
+  const [applications, setApplications] = useState([])
+  const [selectedPhone, setSelectedPhone] = useState('')
+  const [form, setForm] = useState(emptyDetails)
+  const [status, setStatus] = useState({ type: 'idle', message: '' })
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+
+  const selectedApplication = useMemo(
+    () => applications.find((item) => item.phone === selectedPhone) || null,
+    [applications, selectedPhone],
+  )
+
+  const loadApplications = async (preferredPhone) => {
+    setLoading(true)
+
+    try {
+      const response = await fetch(`${API_BASE}/review/applications?status=pending_review`, {
+        headers: SUPERVISOR_HEADERS,
+      })
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Unable to load applications.')
+      }
+
+      const nextApplications = data.applications || []
+      setApplications(nextApplications)
+
+      const nextSelectedPhone = preferredPhone && nextApplications.some((item) => item.phone === preferredPhone)
+        ? preferredPhone
+        : nextApplications[0]?.phone || ''
+
+      setSelectedPhone(nextSelectedPhone)
+      setStatus({ type: 'idle', message: '' })
+    } catch (error) {
+      setApplications([])
+      setSelectedPhone('')
+      setStatus({ type: 'error', message: error.message || 'Unable to load pending applications.' })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadApplications()
+  }, [])
+
+  useEffect(() => {
+    if (!selectedApplication) {
+      setForm(emptyDetails)
+      return
+    }
+
+    setForm({
+      name: selectedApplication.name || '',
+      phone: formatPhone(selectedApplication.phone),
+      email: selectedApplication.email || '',
+      playerMobileId: selectedApplication.playerMobileId || '',
+      facebook: selectedApplication.facebook || '',
+      instagram: selectedApplication.instagram || '',
+      telegram: selectedApplication.telegram || '',
+      status: selectedApplication.status === 'pending_review' ? 'Pending Review' : selectedApplication.status,
+    })
+  }, [selectedApplication])
+
+  const handleChange = (event) => {
+    const { name, value } = event.target
+    setForm((current) => ({ ...current, [name]: value }))
+  }
+
+  const handleSave = async () => {
+    if (!selectedApplication) return
+
+    setSaving(true)
+    setStatus({ type: 'idle', message: '' })
+
+    try {
+      const response = await fetch(`${API_BASE}/review/applications/${selectedApplication.phone}`, {
+        method: 'PATCH',
+        headers: SUPERVISOR_HEADERS,
+        body: JSON.stringify({
+          name: form.name,
+          email: form.email,
+          playerMobileId: form.playerMobileId,
+          facebook: form.facebook,
+          instagram: form.instagram,
+          telegram: form.telegram,
+        }),
+      })
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Unable to save application changes.')
+      }
+
+      await loadApplications(selectedApplication.phone)
+      setStatus({ type: 'success', message: 'Application changes saved.' })
+    } catch (error) {
+      setStatus({ type: 'error', message: error.message || 'Unable to save application changes.' })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleDecision = async (decision) => {
+    if (!selectedApplication) return
+
+    setSaving(true)
+    setStatus({ type: 'idle', message: '' })
+
+    try {
+      const response = await fetch(`${API_BASE}/review/applications/${selectedApplication.phone}/decision`, {
+        method: 'POST',
+        headers: SUPERVISOR_HEADERS,
+        body: JSON.stringify({
+          decision,
+          reviewer: roles.supervisor.user.name,
+        }),
+      })
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.message || `Unable to mark application ${decision}.`)
+      }
+
+      await loadApplications()
+      setStatus({ type: 'success', message: `Application ${decision}. SMS notification ${data.sms?.mode === 'twilio' ? 'sent' : 'mocked'}.` })
+    } catch (error) {
+      setStatus({ type: 'error', message: error.message || `Unable to mark application ${decision}.` })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const stats = [
+    { ...roles.supervisor.stats[0], value: String(applications.length), note: applications.length ? 'Requires your review' : 'Queue is clear', tone: 'blue' },
+    ...roles.supervisor.stats.slice(1),
+  ]
+
+  const workflow = [
+    { label: 'Submitted', count: String(applications.length), active: applications.length > 0 },
+    { label: 'Pending Supervisor Review', count: String(applications.length), active: applications.length > 0 },
+    roles.supervisor.workflow[2],
+    roles.supervisor.workflow[3],
+  ]
+
   return (
     <div className="supervisor-layout">
       <div className="supervisor-main">
         <div className="supervisor-queue card-light">
           <div className="section-title-row">
             <h3>Pending Applications</h3>
-            <span className="secondary-badge">2</span>
+            <span className="secondary-badge">{applications.length}</span>
           </div>
+          {status.message && (
+            <div className={`status-banner ${status.type}`}>{status.message}</div>
+          )}
           <div className="queue-list">
-            {roles.supervisor.queue.map((item) => (
-              <div key={item[0]} className="queue-item">
-                <div className="queue-avatar">{item[0].split(' ').map((part) => part[0]).slice(0, 2).join('')}</div>
+            {!loading && applications.length === 0 && (
+              <div className="queue-item">
                 <div className="queue-copy">
-                  <div className="queue-name">{item[0]}</div>
-                  <div className="queue-phone">{item[1]}</div>
-                  <div className="queue-meta">{item[2]}</div>
+                  <div className="queue-name">No applications pending review</div>
+                  <div className="queue-meta">Verified applications will appear here after SMS confirmation.</div>
                 </div>
-                <button className="chevron-btn"><Icon name="chevron" /></button>
               </div>
+            )}
+            {applications.map((item) => (
+              <button
+                key={item.phone}
+                type="button"
+                className="queue-item"
+                onClick={() => setSelectedPhone(item.phone)}
+              >
+                <div className="queue-avatar">{item.name.split(' ').map((part) => part[0]).slice(0, 2).join('')}</div>
+                <div className="queue-copy">
+                  <div className="queue-name">{item.name}</div>
+                  <div className="queue-phone">{formatPhone(item.phone)}</div>
+                  <div className="queue-meta">{formatSubmittedAt(item.submittedAt)}</div>
+                </div>
+                <span className="chevron-btn"><Icon name="chevron" /></span>
+              </button>
             ))}
           </div>
           <button className="ghost-link">View all pending applications</button>
@@ -30,33 +220,51 @@ function SupervisorTable() {
         <div className="supervisor-details card-light">
           <div className="detail-meta">Application Details</div>
           <div className="detail-name-row">
-            <div className="detail-avatar">MT</div>
+            <div className="detail-avatar">{form.name ? form.name.split(' ').map((part) => part[0]).slice(0, 2).join('') : '--'}</div>
             <div>
-              <h3>{roles.supervisor.details.name}</h3>
-              <div>{roles.supervisor.details.phone}</div>
+              <h3>{form.name || 'No application selected'}</h3>
+              <div>{form.phone || 'Select a pending application'}</div>
             </div>
           </div>
           <div className="detail-grid">
-            <div><span>Name</span><strong>{roles.supervisor.details.name}</strong></div>
-            <div><span>Phone Number</span><strong>{roles.supervisor.details.phone}</strong></div>
-            <div><span>Email Address</span><strong>{roles.supervisor.details.email}</strong></div>
-            <div><span>Player Mobile ID</span><strong>{roles.supervisor.details.mobileId}</strong></div>
-            <div><span>Player ID</span><strong>{roles.supervisor.details.playerId}</strong></div>
-            <div><span>Facebook Link</span><strong>{roles.supervisor.details.facebook}</strong></div>
-            <div><span>Instagram Handle</span><strong>{roles.supervisor.details.instagram}</strong></div>
-            <div><span>Telegram ID</span><strong>{roles.supervisor.details.telegram}</strong></div>
+            <label>
+              <span>Name</span>
+              <input name="name" value={form.name} onChange={handleChange} disabled={!selectedApplication || saving} />
+            </label>
+            <div><span>Phone Number</span><strong>{form.phone || '-'}</strong></div>
+            <label>
+              <span>Email Address</span>
+              <input name="email" value={form.email} onChange={handleChange} disabled={!selectedApplication || saving} />
+            </label>
+            <label>
+              <span>Player Mobile ID</span>
+              <input name="playerMobileId" value={form.playerMobileId} onChange={handleChange} disabled={!selectedApplication || saving} />
+            </label>
+            <label>
+              <span>Facebook Link</span>
+              <input name="facebook" value={form.facebook} onChange={handleChange} disabled={!selectedApplication || saving} />
+            </label>
+            <label>
+              <span>Instagram Handle</span>
+              <input name="instagram" value={form.instagram} onChange={handleChange} disabled={!selectedApplication || saving} />
+            </label>
+            <label>
+              <span>Telegram ID</span>
+              <input name="telegram" value={form.telegram} onChange={handleChange} disabled={!selectedApplication || saving} />
+            </label>
+            <div><span>Status</span><strong>{form.status}</strong></div>
           </div>
           <div className="approval-actions">
-            <button className="approve-btn">Approve</button>
-            <button className="reject-btn">Reject</button>
-            <button className="save-btn">Save Changes</button>
+            <button className="approve-btn" onClick={() => handleDecision('approved')} disabled={!selectedApplication || saving}>Approve</button>
+            <button className="reject-btn" onClick={() => handleDecision('rejected')} disabled={!selectedApplication || saving}>Reject</button>
+            <button className="save-btn" onClick={handleSave} disabled={!selectedApplication || saving}>Save Changes</button>
           </div>
         </div>
 
         <div className="workflow-panel card-light">
           <div className="workflow-head">Application Status & Workflow</div>
           <div className="workflow-steps">
-            {roles.supervisor.workflow.map((step, index) => (
+            {workflow.map((step, index) => (
               <div key={step.label} className={`workflow-step ${step.active ? 'active' : ''}`}>
                 <div className="step-dot">{step.active ? '✓' : index + 1}</div>
                 <div className="step-count">{step.count}</div>
@@ -118,6 +326,11 @@ function SupervisorTable() {
 }
 
 export function SupervisorDashboard() {
+  const stats = [
+    { ...roles.supervisor.stats[0], value: roles.supervisor.stats[0].value },
+    ...roles.supervisor.stats.slice(1),
+  ]
+
   return (
     <>
       <div className="page-header compact">
@@ -131,7 +344,7 @@ export function SupervisorDashboard() {
         </div>
       </div>
       <div className="summary-grid five-up supervisor-stats">
-        {roles.supervisor.stats.map((card) => (
+        {stats.map((card) => (
           <StatCard key={card.title} title={card.title} value={card.value} note={card.note} tone={card.tone} />
         ))}
       </div>

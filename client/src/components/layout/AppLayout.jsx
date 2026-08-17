@@ -43,17 +43,7 @@ export function AppLayout({ route, children }) {
 
       <main className="main-panel">
         <header className="topbar">
-          <div className="role-switcher" aria-label="Role switcher">
-            {Object.entries(roles).map(([key, role]) => (
-              <NavLink
-                key={key}
-                to={role.path}
-                className={({ isActive }) => `switch-btn ${isActive ? 'selected' : ''}`}
-              >
-                {role.name}
-              </NavLink>
-            ))}
-          </div>
+          <div />
 
           <div className="topbar-actions">
             <button className="header-icon" aria-label="Notifications"><Icon name="bell" /></button>

@@ -1,8 +1,12 @@
+import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import roles from '../../data/roles'
 import { AppLayout } from '../layout/AppLayout'
 import { Icon, StatusBadge } from '../ui/Icon'
 
-function CustomerOverview() {
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+
+function CustomerOverview({ application }) {
   return (
     <div className="customer-overview">
       <div className="profile-wrap">
@@ -12,14 +16,13 @@ function CustomerOverview() {
             <button className="view-only-link">View Only</button>
           </div>
           <div className="profile-lines">
-            <div className="profile-line"><span>Name</span><strong>Ava Johnson</strong></div>
-            <div className="profile-line"><span>Phone Number</span><strong>+1 (919) 555-0147</strong></div>
-            <div className="profile-line"><span>Email Address</span><strong>ava.johnson@example.com</strong></div>
-            <div className="profile-line"><span>Player Mobile ID</span><strong>M-120-777-872</strong></div>
-            <div className="profile-line"><span>Player ID</span><strong>5885233</strong></div>
-            <div className="profile-line"><span>Facebook Link</span><strong>fb.com/ava.johnson</strong></div>
-            <div className="profile-line"><span>Instagram Handle</span><strong>@avajplays</strong></div>
-            <div className="profile-line"><span>Telegram ID</span><strong>@avaj_tg</strong></div>
+            <div className="profile-line"><span>Name</span><strong>{application.name}</strong></div>
+            <div className="profile-line"><span>Phone Number</span><strong>{application.phone}</strong></div>
+            <div className="profile-line"><span>Email Address</span><strong>{application.email}</strong></div>
+            <div className="profile-line"><span>Player Mobile ID</span><strong>{application.playerMobileId || '—'}</strong></div>
+            <div className="profile-line"><span>Facebook Link</span><strong>{application.facebook || '—'}</strong></div>
+            <div className="profile-line"><span>Instagram Handle</span><strong>{application.instagram || '—'}</strong></div>
+            <div className="profile-line"><span>Telegram ID</span><strong>{application.telegram || '—'}</strong></div>
           </div>
         </div>
       </div>
@@ -32,8 +35,7 @@ function CustomerOverview() {
         </div>
         <div className="verified-card card-light">
           <div className="phone-pill"><Icon name="bell" /> Phone Verified via SMS</div>
-          <div className="phone-number">+1 (919) 555-0147</div>
-          <div className="phone-meta">Verified on May 26, 2026 at 10:32 AM</div>
+          <div className="phone-number">{application.phone}</div>
         </div>
       </div>
 
@@ -52,12 +54,12 @@ function CustomerOverview() {
   )
 }
 
-export function CustomerDashboard() {
+function CustomerApprovedDashboard({ application }) {
   return (
     <>
       <div className="page-header">
         <div>
-          <h1>Welcome back, Ava Johnson!</h1>
+          <h1>Welcome back, {application.name}!</h1>
           <p>Here&apos;s your rewards status and activity overview.</p>
         </div>
         <div className="state-pills">
@@ -65,7 +67,7 @@ export function CustomerDashboard() {
           <span className="approved-pill">Account Approved</span>
         </div>
       </div>
-      <CustomerOverview />
+      <CustomerOverview application={application} />
       <div className="summary-grid three-up">
         {roles.customer.metrics.map((metric, index) => (
           <div className="metric-card card-light" key={metric.label}>
@@ -113,6 +115,85 @@ export function CustomerDashboard() {
   )
 }
 
+const STATUS_COPY = {
+  pending_review: {
+    title: 'Application Pending Review',
+    body: 'Your signup has been submitted and is awaiting review by a PayFe Supervisor. You will be able to view your full profile once approved.',
+    icon: 'bell',
+  },
+  rejected: {
+    title: 'Application Not Approved',
+    body: 'Your application was not approved. You may resubmit your signup with updated details.',
+    icon: 'info',
+  },
+}
+
+function CustomerStatusCard({ status }) {
+  const copy = STATUS_COPY[status] || STATUS_COPY.pending_review
+
+  return (
+    <div className="signup-shell">
+      <div className="signup-card">
+        <div className="status-card card-light">
+          <div className="status-icon"><Icon name={copy.icon} /></div>
+          <h3>{copy.title}</h3>
+          <p>{copy.body}</p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+export function CustomerDashboard() {
+  const navigate = useNavigate()
+  const [state, setState] = useState({ loading: true, error: null, status: null, application: null })
+
+  useEffect(() => {
+    const token = localStorage.getItem('p4p_customer_token')
+
+    if (!token) {
+      navigate('/login')
+      return
+    }
+
+    fetch(`${API_BASE}/customer/session`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then(async (response) => {
+        const data = await response.json()
+
+        if (!response.ok) {
+          if (response.status === 401) {
+            localStorage.removeItem('p4p_customer_token')
+            navigate('/login')
+            return
+          }
+          setState({ loading: false, error: data.message || 'Unable to load account status.', status: null, application: null })
+          return
+        }
+
+        setState({ loading: false, error: null, status: data.status, application: data.application })
+      })
+      .catch(() => {
+        setState({ loading: false, error: 'Unable to load account status.', status: null, application: null })
+      })
+  }, [navigate])
+
+  if (state.loading) {
+    return <p className="otp-label">Loading your account...</p>
+  }
+
+  if (state.error) {
+    return <div className="status-banner error">{state.error}</div>
+  }
+
+  if (state.status !== 'approved') {
+    return <CustomerStatusCard status={state.status} />
+  }
+
+  return <CustomerApprovedDashboard application={state.application} />
+}
+
 export function CustomerPage() {
   return (
     <AppLayout route="customer">
@@ -120,3 +201,4 @@ export function CustomerPage() {
     </AppLayout>
   )
 }
+

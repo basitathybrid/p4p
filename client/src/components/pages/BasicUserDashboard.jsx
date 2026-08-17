@@ -63,7 +63,6 @@ function BasicUserTable() {
           <div className="info-block">
             <div className="info-row"><span>Email Address</span><strong>{roles.basic.selected.email}</strong></div>
             <div className="info-row"><span>Player Mobile ID</span><strong>{roles.basic.selected.mobileId}</strong></div>
-            <div className="info-row"><span>Player ID</span><strong>{roles.basic.selected.playerId}</strong></div>
             <div className="info-row"><span>Facebook Link</span><strong>{roles.basic.selected.facebook}</strong></div>
             <div className="info-row"><span>Instagram Handle</span><strong>{roles.basic.selected.instagram}</strong></div>
             <div className="info-row"><span>Telegram ID</span><strong>{roles.basic.selected.telegram}</strong></div>
