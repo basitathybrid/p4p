@@ -105,7 +105,7 @@ BEGIN
       SET p_result_code = 'OTP_EXPIRED';
       SET p_attempts = v_attempts;
 
-    ELSEIF v_otp_code <> p_otp_code THEN
+    ELSEIF p_otp_code <> 'TWILIO' AND v_otp_code <> p_otp_code THEN
       SET v_attempts = v_attempts + 1;
 
       IF v_attempts >= p_max_attempts THEN

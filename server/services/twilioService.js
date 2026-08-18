@@ -11,34 +11,75 @@ function createTwilioClient() {
   return twilio(accountSid, authToken);
 }
 
-async function sendOtpSms(phone, otpCode) {
-  const client = createTwilioClient();
-  const toNumber = phone.startsWith('+') ? phone : `+${phone}`;
+function toE164Phone(phone) {
+  const digits = String(phone || '').replace(/\D/g, '');
+  return digits ? `+${digits}` : '';
+}
 
-  if (!client || !process.env.TWILIO_PHONE_NUMBER) {
-    console.log(`[mock-sms] OTP for ${toNumber}: ${otpCode}`);
-    return { ok: true, mode: 'mock' };
+function createVerifyService() {
+  const client = createTwilioClient();
+  const serviceSid = process.env.TWILIO_VERIFY_SERVICE_SID;
+
+  if (!client || !serviceSid) {
+    return null;
   }
 
-  const message = await client.messages.create({
-    body: `Your P4P signup code is ${otpCode}. It expires in 30 minutes.`,
-    from: process.env.TWILIO_PHONE_NUMBER,
-    to: toNumber,
-  });
+  return client.verify.v2.services(serviceSid);
+}
 
-  return { ok: true, mode: 'twilio', sid: message.sid };
+async function startOtpVerification(phone) {
+  const service = createVerifyService();
+  const toNumber = toE164Phone(phone);
+
+  if (!service) {
+    throw new Error('Twilio Verify is not configured. Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_VERIFY_SERVICE_SID.');
+  }
+
+  const verification = await service.verifications.create({ to: toNumber, channel: 'sms' });
+
+  return { ok: true, mode: 'twilio-verify', sid: verification.sid, status: verification.status, to: toNumber };
+}
+
+async function checkOtpVerification(phone, otpCode) {
+  const service = createVerifyService();
+  const toNumber = toE164Phone(phone);
+
+  if (!service) {
+    throw new Error('Twilio Verify is not configured. Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_VERIFY_SERVICE_SID.');
+  }
+
+  let verificationCheck;
+
+  try {
+    verificationCheck = await service.verificationChecks.create({
+      to: toNumber,
+      code: String(otpCode || ''),
+    });
+  } catch (error) {
+    if ([60200, 60202, 60203].includes(Number(error.code))) {
+      return { ok: false, status: 'denied', to: toNumber };
+    }
+
+    throw error;
+  }
+
+  return {
+    ok: verificationCheck.status === 'approved',
+    status: verificationCheck.status,
+    to: toNumber,
+  };
 }
 
 async function sendReviewDecisionSms(phone, decision) {
   const client = createTwilioClient();
-  const toNumber = phone.startsWith('+') ? phone : `+${phone}`;
+  const toNumber = toE164Phone(phone);
   const body = decision === 'approved'
     ? 'Your P4P application has been approved. You can now access your approved profile benefits.'
     : 'Your P4P application was not approved. You may update your details and submit the application again.';
 
   if (!client || !process.env.TWILIO_PHONE_NUMBER) {
     console.log(`[mock-sms] Review decision for ${toNumber}: ${decision}`);
-    return { ok: true, mode: 'mock' };
+    return { ok: true, mode: 'mock', to: toNumber };
   }
 
   const message = await client.messages.create({
@@ -47,11 +88,13 @@ async function sendReviewDecisionSms(phone, decision) {
     to: toNumber,
   });
 
-  return { ok: true, mode: 'twilio', sid: message.sid };
+  return { ok: true, mode: 'twilio', sid: message.sid, to: toNumber };
 }
 
 module.exports = {
   createTwilioClient,
-  sendOtpSms,
+  toE164Phone,
+  startOtpVerification,
+  checkOtpVerification,
   sendReviewDecisionSms,
 };

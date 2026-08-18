@@ -5,6 +5,7 @@ const MAX_ATTEMPTS = 3;
 const MIN_PASSWORD_LENGTH = 8;
 const SESSION_TTL_SECONDS = 30 * 60;
 const LOCKOUT_SECONDS = 30 * 60;
+const TWILIO_VERIFIED_OTP = 'TWILIO';
 
 function normalizePhone(phone) {
   if (!phone) return '';
@@ -127,14 +128,14 @@ async function createSignupSession(payload) {
   }
 }
 
-async function verifySignupOtp(phone, otpCode) {
+async function verifySignupOtp(phone, otpCode, twilioVerified = false) {
   const normalizedPhone = normalizePhone(phone);
   const conn = await db.getConnection();
 
   try {
     await conn.query(
       'CALL sp_verify_otp(?, ?, ?, ?, ?, @p_result_code, @p_attempts, @p_locked, @p_retry_after_seconds)',
-      [normalizedPhone, otpCode == null ? '' : String(otpCode), MAX_ATTEMPTS, SESSION_TTL_SECONDS, LOCKOUT_SECONDS]
+      [normalizedPhone, twilioVerified ? TWILIO_VERIFIED_OTP : otpCode == null ? '' : String(otpCode), MAX_ATTEMPTS, SESSION_TTL_SECONDS, LOCKOUT_SECONDS]
     );
 
     const [[outParams]] = await conn.query(

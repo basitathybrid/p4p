@@ -3,7 +3,7 @@ const cors = require('cors');
 require('dotenv').config();
 
 const db = require('./db');
-const { sendOtpSms, sendReviewDecisionSms } = require('./services/twilioService');
+const { startOtpVerification, checkOtpVerification, sendReviewDecisionSms } = require('./services/twilioService');
 const { signCustomerToken, requireCustomerAuth } = require('./auth');
 const {
   createSignupSession,
@@ -79,13 +79,13 @@ app.post('/api/signup/request', async (req, res) => {
       return res.status(statusCode).json({ ...created, message });
     }
 
-    const smsResult = await sendOtpSms(phone, created.otpCode);
+    const verificationResult = await startOtpVerification(phone);
 
     return res.status(200).json({
       success: true,
       message: 'OTP sent to phone number.',
       phone,
-      sms: smsResult,
+      sms: verificationResult,
       expiresInMinutes: created.expiresInMinutes,
       sessionId: created.sessionId,
     });
@@ -98,7 +98,17 @@ app.post('/api/signup/request', async (req, res) => {
 app.post('/api/signup/verify', async (req, res) => {
   try {
     const { phone, otpCode } = req.body || {};
-    const result = await verifySignupOtp(phone, otpCode);
+    const verificationResult = await checkOtpVerification(phone, otpCode);
+
+    if (!verificationResult.ok) {
+      return res.status(400).json({
+        success: false,
+        code: 'OTP_INVALID',
+        message: 'The OTP is invalid or has expired.',
+      });
+    }
+
+    const result = await verifySignupOtp(phone, otpCode, true);
 
     if (!result.success) {
       const statusCode = result.code === 'LOCKED' ? 423 : result.code === 'OTP_EXPIRED' ? 410 : 400;
