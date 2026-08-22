@@ -20,6 +20,7 @@ function CustomerOverview({ application }) {
             <div className="profile-line"><span>Phone Number</span><strong>{application.phone}</strong></div>
             <div className="profile-line"><span>Email Address</span><strong>{application.email}</strong></div>
             <div className="profile-line"><span>Player Mobile ID</span><strong>{application.playerMobileId || '—'}</strong></div>
+            <div className="profile-line"><span>Player ID</span><strong>{application.playerId || '—'}</strong></div>
             <div className="profile-line"><span>Facebook Link</span><strong>{application.facebook || '—'}</strong></div>
             <div className="profile-line"><span>Instagram Handle</span><strong>{application.instagram || '—'}</strong></div>
             <div className="profile-line"><span>Telegram ID</span><strong>{application.telegram || '—'}</strong></div>

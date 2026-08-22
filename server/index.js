@@ -53,9 +53,14 @@ app.post('/api/signup/request', async (req, res) => {
   try {
     const payload = req.body || {};
     const phone = normalizePhone(payload.phone);
+    const playerId = payload.playerId == null ? '' : String(payload.playerId).trim();
 
-    if (!payload.name || !phone || !payload.email) {
-      return res.status(400).json({ success: false, code: 'VALIDATION_ERROR', message: 'Name, phone, and email are required.' });
+    if (!payload.name || !phone || !payload.email || !String(payload.playerMobileId || '').trim()) {
+      return res.status(400).json({ success: false, code: 'VALIDATION_ERROR', message: 'Name, phone, email, and player mobile ID are required.' });
+    }
+
+    if (playerId && !/^\d+$/.test(playerId)) {
+      return res.status(400).json({ success: false, code: 'INVALID_PLAYER_ID', message: 'Player ID must be numeric.' });
     }
 
     const created = await createSignupSession({
@@ -63,18 +68,21 @@ app.post('/api/signup/request', async (req, res) => {
       phone,
       email: payload.email,
       password: payload.password,
-      playerMobileId: payload.playerMobileId || '',
+      playerMobileId: payload.playerMobileId,
+      playerId: playerId || null,
       facebook: payload.facebook || '',
       instagram: payload.instagram || '',
       telegram: payload.telegram || '',
     });
 
     if (!created.success) {
-      const statusCode = created.code === 'PHONE_EXISTS' ? 409 : 400;
+      const statusCode = created.code === 'PHONE_EXISTS' ? 409 : created.code === 'SIGNUP_LOCKED' ? 423 : 400;
       const message = created.code === 'INVALID_PASSWORD'
         ? 'Password must be at least 8 characters.'
         : created.code === 'PHONE_EXISTS'
           ? 'This phone number is already registered.'
+          : created.code === 'SIGNUP_LOCKED'
+            ? 'Signup is temporarily locked after too many incorrect OTP attempts.'
           : 'Unable to create signup request.';
       return res.status(statusCode).json({ ...created, message });
     }
@@ -101,6 +109,11 @@ app.post('/api/signup/verify', async (req, res) => {
     const verificationResult = await checkOtpVerification(phone, otpCode);
 
     if (!verificationResult.ok) {
+      const failedAttempt = await verifySignupOtp(phone, otpCode);
+      if (failedAttempt.locked) {
+        return res.status(423).json(failedAttempt);
+      }
+
       return res.status(400).json({
         success: false,
         code: 'OTP_INVALID',
@@ -134,6 +147,13 @@ app.post('/api/auth/login', async (req, res) => {
     const result = await loginCustomer(phone, password);
 
     if (!result.success) {
+      if (result.code === 'SIGNUP_LOCKED') {
+        return res.status(423).json({
+          ...result,
+          message: 'Signup is temporarily locked after too many incorrect OTP attempts.',
+        });
+      }
+
       return res.status(401).json({ success: false, code: 'INVALID_CREDENTIALS', message: 'Phone number or password is incorrect.' });
     }
 
@@ -204,6 +224,8 @@ app.patch('/api/review/applications/:phone', requireSupervisor, async (req, res)
         ...result,
         message: result.code === 'REVIEW_CLOSED'
           ? 'Submitted customer data can only be edited before a decision is made.'
+          : result.code === 'INVALID_PLAYER_ID'
+            ? 'Player ID must be numeric.'
           : 'Application not found.',
       });
     }

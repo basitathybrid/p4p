@@ -14,6 +14,7 @@ const emptyDetails = {
   phone: '',
   email: '',
   playerMobileId: '',
+  playerId: '',
   facebook: '',
   instagram: '',
   telegram: '',
@@ -89,6 +90,7 @@ function SupervisorTable() {
       phone: formatPhone(selectedApplication.phone),
       email: selectedApplication.email || '',
       playerMobileId: selectedApplication.playerMobileId || '',
+      playerId: selectedApplication.playerId || '',
       facebook: selectedApplication.facebook || '',
       instagram: selectedApplication.instagram || '',
       telegram: selectedApplication.telegram || '',
@@ -115,6 +117,7 @@ function SupervisorTable() {
           name: form.name,
           email: form.email,
           playerMobileId: form.playerMobileId,
+          playerId: form.playerId,
           facebook: form.facebook,
           instagram: form.instagram,
           telegram: form.telegram,
@@ -239,6 +242,10 @@ function SupervisorTable() {
             <label>
               <span>Player Mobile ID</span>
               <input name="playerMobileId" value={form.playerMobileId} onChange={handleChange} disabled={!selectedApplication || saving} />
+            </label>
+            <label>
+              <span>Player ID</span>
+              <input type="number" name="playerId" value={form.playerId} onChange={handleChange} min="0" step="1" disabled={!selectedApplication || saving} />
             </label>
             <label>
               <span>Facebook Link</span>

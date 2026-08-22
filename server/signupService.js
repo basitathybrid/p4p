@@ -26,6 +26,7 @@ function mapApplicationRow(row) {
     name: row.name,
     email: row.email,
     playerMobileId: row.player_mobile_id,
+    playerId: row.player_id,
     facebook: row.facebook,
     instagram: row.instagram,
     telegram: row.telegram,
@@ -64,6 +65,19 @@ async function loginCustomer(phone, password) {
     return { success: false, code: 'INVALID_CREDENTIALS' };
   }
 
+  const [lockedSessions] = await db.query(
+    'SELECT GREATEST(0, TIMESTAMPDIFF(SECOND, NOW(), locked_until)) AS retry_after_seconds FROM signup_sessions WHERE phone = ? AND locked_until IS NOT NULL AND locked_until > NOW()',
+    [normalizedPhone]
+  );
+
+  if (lockedSessions[0]) {
+    return {
+      success: false,
+      code: 'SIGNUP_LOCKED',
+      retryAfterSeconds: lockedSessions[0].retry_after_seconds,
+    };
+  }
+
   const [rows] = await db.query('SELECT password_hash FROM customers WHERE phone = ?', [normalizedPhone]);
 
   if (!rows[0]) {
@@ -86,6 +100,28 @@ async function createSignupSession(payload) {
     return { success: false, code: 'INVALID_PHONE' };
   }
 
+  const [lockedSessions] = await db.query(
+    'SELECT GREATEST(0, TIMESTAMPDIFF(SECOND, NOW(), locked_until)) AS retry_after_seconds FROM signup_sessions WHERE phone = ? AND locked_until IS NOT NULL AND locked_until > NOW()',
+    [phone]
+  );
+
+  if (lockedSessions[0]) {
+    return {
+      success: false,
+      code: 'SIGNUP_LOCKED',
+      retryAfterSeconds: lockedSessions[0].retry_after_seconds,
+    };
+  }
+
+  if (!String(payload.playerMobileId || '').trim()) {
+    return { success: false, code: 'INVALID_PLAYER_MOBILE_ID' };
+  }
+
+  const playerId = payload.playerId == null ? '' : String(payload.playerId).trim();
+  if (playerId && !/^\d+$/.test(playerId)) {
+    return { success: false, code: 'INVALID_PLAYER_ID' };
+  }
+
   if (!payload.password || String(payload.password).length < MIN_PASSWORD_LENGTH) {
     return { success: false, code: 'INVALID_PASSWORD' };
   }
@@ -96,12 +132,13 @@ async function createSignupSession(payload) {
 
   try {
     await conn.query(
-      'CALL sp_start_signup(?, ?, ?, ?, ?, ?, ?, ?, ?, @p_result_code, @p_profile_id)',
+      'CALL sp_start_signup(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, @p_result_code, @p_profile_id)',
       [
         phone,
         payload.name || '',
         payload.email || '',
         payload.playerMobileId || '',
+        playerId || null,
         payload.facebook || '',
         payload.instagram || '',
         payload.telegram || '',
@@ -180,17 +217,22 @@ async function updateApplication(phone, updates) {
     name: updates.name !== undefined ? updates.name || '' : existing.name,
     email: updates.email !== undefined ? updates.email || '' : existing.email,
     playerMobileId: updates.playerMobileId !== undefined ? updates.playerMobileId || '' : existing.playerMobileId,
+    playerId: updates.playerId !== undefined ? updates.playerId || null : existing.playerId,
     facebook: updates.facebook !== undefined ? updates.facebook || '' : existing.facebook,
     instagram: updates.instagram !== undefined ? updates.instagram || '' : existing.instagram,
     telegram: updates.telegram !== undefined ? updates.telegram || '' : existing.telegram,
   };
 
+  if (merged.playerId !== null && !/^\d+$/.test(String(merged.playerId))) {
+    return { success: false, code: 'INVALID_PLAYER_ID', application: existing };
+  }
+
   const conn = await db.getConnection();
 
   try {
     await conn.query(
-      'CALL sp_update_application(?, ?, ?, ?, ?, ?, ?, @p_result_code)',
-      [normalizedPhone, merged.name, merged.email, merged.playerMobileId, merged.facebook, merged.instagram, merged.telegram]
+      'CALL sp_update_application(?, ?, ?, ?, ?, ?, ?, ?, @p_result_code)',
+      [normalizedPhone, merged.name, merged.email, merged.playerMobileId, merged.playerId, merged.facebook, merged.instagram, merged.telegram]
     );
 
     const [[outParams]] = await conn.query('SELECT @p_result_code AS result_code');
@@ -231,6 +273,10 @@ async function decideApplication(phone, decision, reviewer) {
 }
 
 async function resetSignupState() {
+  if (process.env.NODE_ENV !== 'test' || process.env.DB_NAME === 'p4p') {
+    throw new Error('resetSignupState is only available for the isolated test database');
+  }
+
   await db.query('DELETE FROM signup_sessions');
   await db.query('DELETE FROM customers');
   await db.query('DELETE FROM applications');

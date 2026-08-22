@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 
@@ -10,18 +10,39 @@ const emptyForm = {
   password: '',
   confirmPassword: '',
   playerMobileId: '',
+  playerId: '',
   facebook: '',
   instagram: '',
   telegram: '',
 }
 
 export function CustomerSignupPage() {
+  const location = useLocation()
+  const navigate = useNavigate()
   const [form, setForm] = useState(emptyForm)
   const [otpCode, setOtpCode] = useState('')
   const [step, setStep] = useState('form')
   const [status, setStatus] = useState({ type: 'idle', message: '' })
   const [loading, setLoading] = useState(false)
-  const [lockoutRemaining, setLockoutRemaining] = useState(0)
+  const [lockoutRemaining, setLockoutRemaining] = useState(location.state?.locked ? location.state.retryAfterSeconds || 1800 : 0)
+
+  useEffect(() => {
+    if (location.state?.locked) {
+      setStep('locked')
+      setStatus({ type: 'error', message: 'Signup is temporarily locked after too many incorrect OTP attempts.' })
+      window.history.replaceState({}, document.title, window.location.pathname)
+    }
+  }, [location.state])
+
+  useEffect(() => {
+    if (step !== 'locked' || lockoutRemaining <= 0) return undefined
+
+    const timer = setInterval(() => {
+      setLockoutRemaining((remaining) => Math.max(remaining - 1, 0))
+    }, 1000)
+
+    return () => clearInterval(timer)
+  }, [step, lockoutRemaining])
 
   const handleChange = (event) => {
     const { name, value } = event.target
@@ -54,6 +75,13 @@ export function CustomerSignupPage() {
       const data = await response.json()
 
       if (!response.ok) {
+        if (data.code === 'SIGNUP_LOCKED') {
+          setLockoutRemaining(data.retryAfterSeconds || 1800)
+          setStatus({ type: 'error', message: data.message || 'Signup is temporarily locked after too many incorrect OTP attempts.' })
+          setStep('locked')
+          return
+        }
+
         if (data.code === 'PHONE_EXISTS') {
           setStatus({ type: 'error', message: 'This phone number is already registered in P4P.' })
         } else {
@@ -144,12 +172,20 @@ export function CustomerSignupPage() {
 
             <div className="field-row two-up">
               <label>
+                Player ID
+                <input type="number" name="playerId" value={form.playerId} onChange={handleChange} placeholder="Enter numeric player ID" min="0" step="1" />
+              </label>
+              <div />
+            </div>
+
+            <div className="field-row two-up">
+              <label>
                 Email Address
                 <input type="email" name="email" value={form.email} onChange={handleChange} placeholder="name@example.com" required />
               </label>
               <label>
                 Player Mobile ID
-                <input name="playerMobileId" value={form.playerMobileId} onChange={handleChange} placeholder="Optional" />
+                <input name="playerMobileId" value={form.playerMobileId} onChange={handleChange} placeholder="Enter player mobile ID" required />
               </label>
             </div>
 
@@ -218,7 +254,7 @@ export function CustomerSignupPage() {
             <p>
               You have exceeded the OTP attempt limit. Please wait {Math.ceil(lockoutRemaining / 60)} minutes before restarting the signup flow.
             </p>
-            <button type="button" className="primary-btn" onClick={startOver}>Restart</button>
+            <button type="button" className="primary-btn" onClick={() => navigate('/login')} disabled={lockoutRemaining > 0}>Restart</button>
           </div>
         )}
 

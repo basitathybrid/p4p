@@ -29,6 +29,11 @@ export function CustomerLoginPage() {
       const data = await response.json()
 
       if (!response.ok) {
+        if (data.code === 'SIGNUP_LOCKED') {
+          navigate('/signup', { state: { locked: true, retryAfterSeconds: data.retryAfterSeconds } })
+          return
+        }
+
         setStatus({ type: 'error', message: data.message || 'Login failed.' })
         return
       }
