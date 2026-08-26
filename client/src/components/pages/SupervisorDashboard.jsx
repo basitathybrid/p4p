@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import roles, { tierMap } from '../../data/roles'
+import config from '../../config'
 import { AppLayout } from '../layout/AppLayout'
 import { Icon, StatCard, StatusBadge } from '../ui/Icon'
 
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 const SUPERVISOR_HEADERS = {
   'Content-Type': 'application/json',
   'x-user-role': 'supervisor',
@@ -48,7 +48,7 @@ function SupervisorTable() {
     setLoading(true)
 
     try {
-      const response = await fetch(`${API_BASE}/review/applications?status=pending_review`, {
+      const response = await fetch(`${config.REST_API.Review.Applications}?status=pending_review`, {
         headers: SUPERVISOR_HEADERS,
       })
       const data = await response.json()
@@ -110,7 +110,7 @@ function SupervisorTable() {
     setStatus({ type: 'idle', message: '' })
 
     try {
-      const response = await fetch(`${API_BASE}/review/applications/${selectedApplication.phone}`, {
+      const response = await fetch(config.REST_API.Review.GetApplicationByPhone(selectedApplication.phone), {
         method: 'PATCH',
         headers: SUPERVISOR_HEADERS,
         body: JSON.stringify({
@@ -145,7 +145,7 @@ function SupervisorTable() {
     setStatus({ type: 'idle', message: '' })
 
     try {
-      const response = await fetch(`${API_BASE}/review/applications/${selectedApplication.phone}/decision`, {
+      const response = await fetch(config.REST_API.Review.SubmitDecision(selectedApplication.phone), {
         method: 'POST',
         headers: SUPERVISOR_HEADERS,
         body: JSON.stringify({

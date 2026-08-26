@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import roles from '../../data/roles'
+import config from '../../config'
 import { AppLayout } from '../layout/AppLayout'
 import { Icon, StatusBadge } from '../ui/Icon'
-
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 
 function CustomerOverview({ application }) {
   return (
@@ -139,6 +138,7 @@ function CustomerStatusCard({ status }) {
           <div className="status-icon"><Icon name={copy.icon} /></div>
           <h3>{copy.title}</h3>
           <p>{copy.body}</p>
+          {status === 'rejected' && <Link to="/signup" className="primary-btn">Resubmit Application</Link>}
         </div>
       </div>
     </div>
@@ -157,7 +157,7 @@ export function CustomerDashboard() {
       return
     }
 
-    fetch(`${API_BASE}/customer/session`, {
+    fetch(config.REST_API.Customer.Session, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then(async (response) => {

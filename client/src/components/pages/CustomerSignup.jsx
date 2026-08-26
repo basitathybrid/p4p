@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+import config from '../../config'
 
 const emptyForm = {
   name: '',
@@ -66,7 +65,7 @@ export function CustomerSignupPage() {
     setLoading(true)
 
     try {
-      const response = await fetch(`${API_BASE}/signup/request`, {
+      const response = await fetch(config.REST_API.Signup.Request, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
@@ -105,7 +104,7 @@ export function CustomerSignupPage() {
     setStatus({ type: 'idle', message: '' })
 
     try {
-      const response = await fetch(`${API_BASE}/signup/verify`, {
+      const response = await fetch(config.REST_API.Signup.Verify, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone: form.phone, otpCode }),

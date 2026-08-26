@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-
-const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
+import config from '../../config'
 
 export function CustomerLoginPage() {
   const navigate = useNavigate()
@@ -20,7 +19,7 @@ export function CustomerLoginPage() {
     setStatus({ type: 'idle', message: '' })
 
     try {
-      const response = await fetch(`${API_BASE}/auth/login`, {
+      const response = await fetch(config.REST_API.Auth.Login, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(form),
