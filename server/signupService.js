@@ -250,6 +250,17 @@ async function updateApplication(phone, updates) {
 
 async function decideApplication(phone, decision, reviewer) {
   const normalizedPhone = normalizePhone(phone);
+  const application = await getApplication(normalizedPhone);
+
+  if (decision === 'approved') {
+    const hasPlayerId = application && String(application.playerId ?? '').trim() !== '';
+    const hasPlayerMobileId = application && String(application.playerMobileId ?? '').trim() !== '';
+
+    if (!application || !hasPlayerId || !hasPlayerMobileId) {
+      return { success: false, code: 'MISSING_REQUIRED_FIELDS', application };
+    }
+  }
+
   const conn = await db.getConnection();
 
   try {

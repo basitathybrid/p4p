@@ -1,10 +1,11 @@
 const express = require('express');
 const cors = require('cors');
+const bcrypt = require('bcryptjs');
 require('dotenv').config();
 
 const db = require('./db');
 const { startOtpVerification, checkOtpVerification, sendReviewDecisionSms } = require('./services/twilioService');
-const { signCustomerToken, requireCustomerAuth } = require('./auth');
+const { signCustomerToken, signSupervisorToken, requireCustomerAuth, requireSupervisorAuth } = require('./auth');
 const {
   createSignupSession,
   verifySignupOtp,
@@ -25,7 +26,7 @@ app.use(express.json());
 
 function isSupervisorUser(req) {
   const role = String(req.header('x-user-role') || '').trim().toLowerCase();
-  return role === 'supervisor' || role === 'payfe supervisor user';
+  return role === 'supervisor' || role === 'payfe supervisor user' || req.user?.role === 'supervisor';
 }
 
 function requireSupervisor(req, res, next) {
@@ -38,6 +39,43 @@ function requireSupervisor(req, res, next) {
   }
 
   return next();
+}
+
+async function loginSupervisor(identifier, password) {
+  const normalizedIdentifier = String(identifier || '').trim();
+
+  if (!normalizedIdentifier || !password) {
+    return { success: false, code: 'INVALID_CREDENTIALS' };
+  }
+
+  const [rows] = await db.query(
+    `SELECT id, full_name AS name, username, email, password_hash, role
+     FROM supervisors
+     WHERE is_active = 1 AND (LOWER(username) = LOWER(?) OR LOWER(email) = LOWER(?))
+     LIMIT 1`,
+    [normalizedIdentifier, normalizedIdentifier]
+  );
+
+  if (!rows[0]) {
+    return { success: false, code: 'INVALID_CREDENTIALS' };
+  }
+
+  const passwordMatches = await bcrypt.compare(String(password), rows[0].password_hash);
+
+  if (!passwordMatches) {
+    return { success: false, code: 'INVALID_CREDENTIALS' };
+  }
+
+  return {
+    success: true,
+    user: {
+      id: rows[0].id,
+      name: rows[0].name,
+      email: rows[0].email,
+      username: rows[0].username,
+      role: rows[0].role || 'supervisor',
+    },
+  };
 }
 
 app.get('/api/health', async (req, res) => {
@@ -143,29 +181,45 @@ app.post('/api/signup/verify', async (req, res) => {
 
 app.post('/api/auth/login', async (req, res) => {
   try {
-    const { phone, password } = req.body || {};
-    const result = await loginCustomer(phone, password);
+    const { phone, email, username, identifier, password } = req.body || {};
+    const loginIdentifier = identifier || phone || username || email;
 
-    if (!result.success) {
-      if (result.code === 'SIGNUP_LOCKED') {
-        return res.status(423).json({
-          ...result,
-          message: 'Signup is temporarily locked after too many incorrect OTP attempts.',
-        });
-      }
+    const customerResult = await loginCustomer(loginIdentifier, password);
 
-      return res.status(401).json({ success: false, code: 'INVALID_CREDENTIALS', message: 'Phone number or password is incorrect.' });
+    if (customerResult.success) {
+      const application = await getApplication(customerResult.phone);
+      const token = signCustomerToken(customerResult.phone);
+
+      return res.status(200).json({
+        success: true,
+        token,
+        role: 'customer',
+        phone: customerResult.phone,
+        status: application ? application.status : null,
+      });
     }
 
-    const application = await getApplication(result.phone);
-    const token = signCustomerToken(result.phone);
+    if (customerResult.code === 'SIGNUP_LOCKED') {
+      return res.status(423).json({
+        ...customerResult,
+        message: 'Signup is temporarily locked after too many incorrect OTP attempts.',
+      });
+    }
 
-    return res.status(200).json({
-      success: true,
-      token,
-      phone: result.phone,
-      status: application ? application.status : null,
-    });
+    const supervisorResult = await loginSupervisor(loginIdentifier, password);
+
+    if (supervisorResult.success) {
+      const token = signSupervisorToken(supervisorResult.user);
+
+      return res.status(200).json({
+        success: true,
+        token,
+        role: 'supervisor',
+        user: supervisorResult.user,
+      });
+    }
+
+    return res.status(401).json({ success: false, code: 'INVALID_CREDENTIALS', message: 'Phone number or password is incorrect.' });
   } catch (error) {
     console.error('login failed:', error);
     return res.status(500).json({ success: false, code: 'SERVER_ERROR', message: 'Unable to log in.', error: error.message });
@@ -188,7 +242,7 @@ app.get('/api/customer/session', requireCustomerAuth, async (req, res) => {
   }
 });
 
-app.get('/api/review/applications', requireSupervisor, async (req, res) => {
+app.get('/api/review/applications', requireSupervisorAuth, async (req, res) => {
   try {
     const status = req.query.status ? String(req.query.status) : undefined;
     const applications = await listApplications(status);
@@ -199,7 +253,7 @@ app.get('/api/review/applications', requireSupervisor, async (req, res) => {
   }
 });
 
-app.get('/api/review/applications/:phone', requireSupervisor, async (req, res) => {
+app.get('/api/review/applications/:phone', requireSupervisorAuth, async (req, res) => {
   try {
     const application = await getApplication(req.params.phone);
 
@@ -214,7 +268,7 @@ app.get('/api/review/applications/:phone', requireSupervisor, async (req, res) =
   }
 });
 
-app.patch('/api/review/applications/:phone', requireSupervisor, async (req, res) => {
+app.patch('/api/review/applications/:phone', requireSupervisorAuth, async (req, res) => {
   try {
     const result = await updateApplication(req.params.phone, req.body || {});
 
@@ -241,7 +295,7 @@ app.patch('/api/review/applications/:phone', requireSupervisor, async (req, res)
   }
 });
 
-app.post('/api/review/applications/:phone/decision', requireSupervisor, async (req, res) => {
+app.post('/api/review/applications/:phone/decision', requireSupervisorAuth, async (req, res) => {
   try {
     const decision = String(req.body?.decision || '').toLowerCase();
     const reviewer = req.body?.reviewer || 'PayFe Supervisor';
@@ -257,9 +311,11 @@ app.post('/api/review/applications/:phone/decision', requireSupervisor, async (r
         ...result,
         message: result.code === 'INVALID_DECISION'
           ? 'Decision must be Approved or Rejected.'
-          : result.code === 'REVIEW_CLOSED'
-            ? 'This application has already been reviewed.'
-            : 'Application not found.',
+          : result.code === 'MISSING_REQUIRED_FIELDS'
+            ? 'Player ID and Player Mobile ID are required before approval.'
+            : result.code === 'REVIEW_CLOSED'
+              ? 'This application has already been reviewed.'
+              : 'Application not found.',
       });
     }
 

@@ -4,10 +4,13 @@ import config from '../../config'
 import { AppLayout } from '../layout/AppLayout'
 import { Icon, StatCard, StatusBadge } from '../ui/Icon'
 
-const SUPERVISOR_HEADERS = {
+const SUPERVISOR_HEADERS = () => ({
   'Content-Type': 'application/json',
   'x-user-role': 'supervisor',
-}
+  ...(localStorage.getItem('p4p_supervisor_token')
+    ? { Authorization: `Bearer ${localStorage.getItem('p4p_supervisor_token')}` }
+    : {}),
+})
 
 const emptyDetails = {
   name: '',
@@ -31,6 +34,51 @@ function formatSubmittedAt(value) {
   return `Submitted on ${new Date(value).toLocaleString()}`
 }
 
+const CSV_COLUMNS = [
+  ['name', 'Name'],
+  ['phone', 'Phone'],
+  ['email', 'Email'],
+  ['playerMobileId', 'Player Mobile ID'],
+  ['playerId', 'Player ID'],
+  ['facebook', 'Facebook'],
+  ['instagram', 'Instagram'],
+  ['telegram', 'Telegram'],
+  ['status', 'Status'],
+  ['reviewedAt', 'Reviewed At'],
+]
+
+function escapeCsvValue(value) {
+  const stringValue = value === undefined || value === null ? '' : String(value)
+  if (/[",\n]/.test(stringValue)) {
+    return `"${stringValue.replace(/"/g, '""')}"`
+  }
+  return stringValue
+}
+
+function buildCsv(rows) {
+  const header = CSV_COLUMNS.map(([, label]) => escapeCsvValue(label)).join(',')
+  const lines = rows.map((row) =>
+    CSV_COLUMNS.map(([key]) => {
+      if (key === 'phone') return escapeCsvValue(formatPhone(row[key]))
+      if (key === 'reviewedAt') return escapeCsvValue(row[key] ? new Date(row[key]).toLocaleString() : '')
+      return escapeCsvValue(row[key])
+    }).join(','),
+  )
+  return [header, ...lines].join('\n')
+}
+
+function downloadCsv(filename, csvContent) {
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
+
 function SupervisorTable() {
   const [applications, setApplications] = useState([])
   const [selectedPhone, setSelectedPhone] = useState('')
@@ -38,18 +86,22 @@ function SupervisorTable() {
   const [status, setStatus] = useState({ type: 'idle', message: '' })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [exporting, setExporting] = useState(false)
 
   const selectedApplication = useMemo(
     () => applications.find((item) => item.phone === selectedPhone) || null,
     [applications, selectedPhone],
   )
 
+  const missingRequiredFields = Boolean(selectedApplication) &&
+    (!String(form.playerId || '').trim() || !String(form.playerMobileId || '').trim())
+
   const loadApplications = async (preferredPhone) => {
     setLoading(true)
 
     try {
       const response = await fetch(`${config.REST_API.Review.Applications}?status=pending_review`, {
-        headers: SUPERVISOR_HEADERS,
+        headers: SUPERVISOR_HEADERS(),
       })
       const data = await response.json()
 
@@ -103,6 +155,29 @@ function SupervisorTable() {
     setForm((current) => ({ ...current, [name]: value }))
   }
 
+  const saveApplicationDetails = async (phone) => {
+    const response = await fetch(config.REST_API.Review.GetApplicationByPhone(phone), {
+      method: 'PATCH',
+      headers: SUPERVISOR_HEADERS(),
+      body: JSON.stringify({
+        name: form.name,
+        email: form.email,
+        playerMobileId: form.playerMobileId,
+        playerId: form.playerId,
+        facebook: form.facebook,
+        instagram: form.instagram,
+        telegram: form.telegram,
+      }),
+    })
+    const data = await response.json()
+
+    if (!response.ok) {
+      throw new Error(data.message || 'Unable to save application changes.')
+    }
+
+    return data
+  }
+
   const handleSave = async () => {
     if (!selectedApplication) return
 
@@ -110,25 +185,7 @@ function SupervisorTable() {
     setStatus({ type: 'idle', message: '' })
 
     try {
-      const response = await fetch(config.REST_API.Review.GetApplicationByPhone(selectedApplication.phone), {
-        method: 'PATCH',
-        headers: SUPERVISOR_HEADERS,
-        body: JSON.stringify({
-          name: form.name,
-          email: form.email,
-          playerMobileId: form.playerMobileId,
-          playerId: form.playerId,
-          facebook: form.facebook,
-          instagram: form.instagram,
-          telegram: form.telegram,
-        }),
-      })
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Unable to save application changes.')
-      }
-
+      await saveApplicationDetails(selectedApplication.phone)
       await loadApplications(selectedApplication.phone)
       setStatus({ type: 'success', message: 'Application changes saved.' })
     } catch (error) {
@@ -141,13 +198,24 @@ function SupervisorTable() {
   const handleDecision = async (decision) => {
     if (!selectedApplication) return
 
+    if (missingRequiredFields) {
+      setStatus({
+        type: 'error',
+        message: 'Player ID and Player Mobile ID are required before an application can be approved or rejected.',
+      })
+      return
+    }
+
     setSaving(true)
     setStatus({ type: 'idle', message: '' })
 
     try {
+      // Persist any edits the supervisor made before recording the decision.
+      await saveApplicationDetails(selectedApplication.phone)
+
       const response = await fetch(config.REST_API.Review.SubmitDecision(selectedApplication.phone), {
         method: 'POST',
-        headers: SUPERVISOR_HEADERS,
+        headers: SUPERVISOR_HEADERS(),
         body: JSON.stringify({
           decision,
           reviewer: roles.supervisor.user.name,
@@ -165,6 +233,38 @@ function SupervisorTable() {
       setStatus({ type: 'error', message: error.message || `Unable to mark application ${decision}.` })
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleExportApproved = async () => {
+    setExporting(true)
+    setStatus({ type: 'idle', message: '' })
+
+    try {
+      const response = await fetch(`${config.REST_API.Review.Applications}?status=approved`, {
+        headers: SUPERVISOR_HEADERS(),
+      })
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Unable to load approved applications.')
+      }
+
+      const approvedApplications = data.applications || []
+
+      if (approvedApplications.length === 0) {
+        setStatus({ type: 'error', message: 'No approved applications to export.' })
+        return
+      }
+
+      const csvContent = buildCsv(approvedApplications)
+      const timestamp = new Date().toISOString().slice(0, 10)
+      downloadCsv(`approved-customers-${timestamp}.csv`, csvContent)
+      setStatus({ type: 'success', message: `Exported ${approvedApplications.length} approved customer(s).` })
+    } catch (error) {
+      setStatus({ type: 'error', message: error.message || 'Unable to export approved applications.' })
+    } finally {
+      setExporting(false)
     }
   }
 
@@ -187,6 +287,9 @@ function SupervisorTable() {
           <div className="section-title-row">
             <h3>Pending Applications</h3>
             <span className="secondary-badge">{applications.length}</span>
+            <button className="ghost-link" onClick={handleExportApproved} disabled={exporting}>
+              {exporting ? 'Exporting…' : 'Export Approved (CSV)'}
+            </button>
           </div>
           {status.message && (
             <div className={`status-banner ${status.type}`}>{status.message}</div>
@@ -261,9 +364,18 @@ function SupervisorTable() {
             </label>
             <div><span>Status</span><strong>{form.status}</strong></div>
           </div>
+          {missingRequiredFields && (
+            <div className="field-error">Player ID and Player Mobile ID are required before this application can be approved or rejected.</div>
+          )}
           <div className="approval-actions">
-            <button className="approve-btn" onClick={() => handleDecision('approved')} disabled={!selectedApplication || saving}>Approve</button>
-            <button className="reject-btn" onClick={() => handleDecision('rejected')} disabled={!selectedApplication || saving}>Reject</button>
+            <button
+              className="approve-btn"
+              onClick={() => handleDecision('approved')}
+              disabled={!selectedApplication || saving || missingRequiredFields}
+            >
+              Approve
+            </button>
+            <button className="reject-btn" onClick={() => handleDecision('rejected')} disabled={!selectedApplication || saving || missingRequiredFields}>Reject</button>
             <button className="save-btn" onClick={handleSave} disabled={!selectedApplication || saving}>Save Changes</button>
           </div>
         </div>

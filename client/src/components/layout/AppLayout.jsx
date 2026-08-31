@@ -1,9 +1,57 @@
-import { NavLink } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { NavLink, useNavigate } from 'react-router-dom'
 import { Icon } from '../ui/Icon'
 import roles from '../../data/roles'
+import config from '../../config'
 
 export function AppLayout({ route, children }) {
   const currentRole = roles[route]
+  const navigate = useNavigate()
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [displayUser, setDisplayUser] = useState(currentRole.user)
+  const menuRef = useRef(null)
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setMenuOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  useEffect(() => {
+    setDisplayUser(currentRole.user)
+
+    if (route === 'supervisor') {
+      const name = localStorage.getItem('p4p_supervisor_name')
+      if (name) setDisplayUser({ name, role: currentRole.user.role })
+      return
+    }
+
+    const token = localStorage.getItem('p4p_customer_token')
+    if (!token) return
+
+    fetch(config.REST_API.Customer.Session, { headers: { Authorization: `Bearer ${token}` } })
+      .then((response) => (response.ok ? response.json() : null))
+      .then((data) => {
+        if (data?.application?.name) {
+          setDisplayUser({ name: data.application.name, role: currentRole.user.role })
+        }
+      })
+      .catch(() => {})
+  }, [route, currentRole.user])
+
+  const handleLogout = () => {
+    localStorage.removeItem('p4p_user_role')
+    localStorage.removeItem('p4p_supervisor_token')
+    localStorage.removeItem('p4p_supervisor_name')
+    localStorage.removeItem('p4p_customer_token')
+    localStorage.removeItem('p4p_customer_phone')
+    navigate('/login')
+  }
 
   return (
     <div className="app-shell">
@@ -33,10 +81,10 @@ export function AppLayout({ route, children }) {
         </div>
 
         <div className="user-mini-profile">
-          <div className="mini-avatar">{currentRole.user.name.split(' ').map((part) => part[0]).slice(0, 2).join('')}</div>
+          <div className="mini-avatar">{displayUser.name.split(' ').map((part) => part[0]).slice(0, 2).join('')}</div>
           <div>
-            <div className="mini-name">{currentRole.user.name}</div>
-            <div className="mini-role">{currentRole.user.role}</div>
+            <div className="mini-name">{displayUser.name}</div>
+            <div className="mini-role">{displayUser.role}</div>
           </div>
         </div>
       </aside>
@@ -47,12 +95,20 @@ export function AppLayout({ route, children }) {
 
           <div className="topbar-actions">
             <button className="header-icon" aria-label="Notifications"><Icon name="bell" /></button>
-            <div className="toolbar-user">
-              <div className="toolbar-avatar">{currentRole.user.name.split(' ').map((part) => part[0]).slice(0, 2).join('')}</div>
-              <div>
-                <div className="toolbar-name">{currentRole.user.name}</div>
-                <div className="toolbar-role">{currentRole.user.role}</div>
-              </div>
+            <div className="toolbar-user-menu" ref={menuRef}>
+              <button className="toolbar-user" onClick={() => setMenuOpen((open) => !open)}>
+                <div className="toolbar-avatar">{displayUser.name.split(' ').map((part) => part[0]).slice(0, 2).join('')}</div>
+                <div>
+                  <div className="toolbar-name">{displayUser.name}</div>
+                  <div className="toolbar-role">{displayUser.role}</div>
+                </div>
+                <span className="toolbar-chevron"><Icon name="chevron" /></span>
+              </button>
+              {menuOpen && (
+                <div className="toolbar-dropdown">
+                  <button className="toolbar-dropdown-item" onClick={handleLogout}>Logout</button>
+                </div>
+              )}
             </div>
           </div>
         </header>
@@ -64,3 +120,4 @@ export function AppLayout({ route, children }) {
 }
 
 export default AppLayout
+

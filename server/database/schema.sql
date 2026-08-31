@@ -69,3 +69,30 @@ CREATE TABLE IF NOT EXISTS customers (
   CONSTRAINT fk_customers_application FOREIGN KEY (phone) REFERENCES applications(phone)
 );
 
+CREATE TABLE IF NOT EXISTS supervisors (
+  id            BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  full_name     VARCHAR(255) NOT NULL,
+  username      VARCHAR(100) NOT NULL UNIQUE,
+  email         VARCHAR(255) NOT NULL UNIQUE,
+  password_hash VARCHAR(255) NOT NULL,
+  role          VARCHAR(50) NOT NULL DEFAULT 'supervisor',
+  is_active     TINYINT(1) NOT NULL DEFAULT 1,
+  created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+);
+
+INSERT INTO supervisors (full_name, username, email, password_hash, role, is_active)
+VALUES (
+  'Maria Rodriguez',
+  'maria.rodriguez',
+  'supervisor@payfe.com',
+  '$2b$10$yF5dDiBRQDa7N2qLPC9y.uyXWpIbOU4klzbY53mT.0y4mI4wekD3C',
+  'supervisor',
+  1
+)
+ON DUPLICATE KEY UPDATE
+  full_name = VALUES(full_name),
+  password_hash = VALUES(password_hash),
+  role = VALUES(role),
+  is_active = VALUES(is_active);
+

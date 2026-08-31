@@ -4,7 +4,7 @@ import config from '../../config'
 
 export function CustomerLoginPage() {
   const navigate = useNavigate()
-  const [form, setForm] = useState({ phone: '', password: '' })
+  const [form, setForm] = useState({ identifier: '', password: '' })
   const [status, setStatus] = useState({ type: 'idle', message: '' })
   const [loading, setLoading] = useState(false)
 
@@ -18,11 +18,16 @@ export function CustomerLoginPage() {
     setLoading(true)
     setStatus({ type: 'idle', message: '' })
 
+    const payload = {
+      identifier: form.identifier,
+      password: form.password,
+    }
+
     try {
       const response = await fetch(config.REST_API.Auth.Login, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify(payload),
       })
 
       const data = await response.json()
@@ -34,6 +39,15 @@ export function CustomerLoginPage() {
         }
 
         setStatus({ type: 'error', message: data.message || 'Login failed.' })
+        return
+      }
+
+      localStorage.setItem('p4p_user_role', data.role)
+
+      if (data.role === 'supervisor') {
+        localStorage.setItem('p4p_supervisor_token', data.token)
+        localStorage.setItem('p4p_supervisor_name', data.user?.name || 'Supervisor')
+        navigate('/supervisor')
         return
       }
 
@@ -53,7 +67,7 @@ export function CustomerLoginPage() {
         <div className="signup-header">
           <div>
             <p className="eyebrow">P4P Account</p>
-            <h1>Customer Login</h1>
+            <h1>Login</h1>
           </div>
         </div>
 
@@ -64,8 +78,8 @@ export function CustomerLoginPage() {
         <form onSubmit={handleSubmit} className="signup-form">
           <div className="field-row two-up">
             <label>
-              Phone Number
-              <input name="phone" value={form.phone} onChange={handleChange} placeholder="+1 (555) 123-4567" required />
+              Phone Number / Email
+              <input name="identifier" value={form.identifier} onChange={handleChange} placeholder="Enter your phone number or email" required />
             </label>
             <label>
               Password

@@ -390,6 +390,61 @@ button {
   display: flex;
   align-items: center;
   gap: 10px;
+  background: none;
+  border: none;
+  padding: 4px;
+  border-radius: 10px;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.toolbar-user:hover {
+  background: #f6f8fd;
+}
+
+.toolbar-user-menu {
+  position: relative;
+}
+
+.toolbar-chevron {
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+}
+
+.toolbar-chevron svg {
+  width: 12px;
+  height: 12px;
+}
+
+.toolbar-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 150px;
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.12);
+  padding: 6px;
+  z-index: 20;
+}
+
+.toolbar-dropdown-item {
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font: inherit;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.toolbar-dropdown-item:hover {
+  background: #f6f8fd;
 }
 
 .toolbar-avatar {
@@ -565,6 +620,10 @@ button {
 .status-card {
   padding: 18px;
   min-height: 166px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
 }
 
 .status-icon {
@@ -574,7 +633,7 @@ button {
   display: grid;
   place-items: center;
   font-size: 2rem;
-  margin: 0 auto 10px;
+  margin: 0 auto;
 }
 
 .status-icon.green {
@@ -584,7 +643,7 @@ button {
 
 .status-card h3 {
   text-align: center;
-  margin: 0 0 8px;
+  margin: 0;
   font-size: 1.25rem;
 }
 
@@ -592,6 +651,12 @@ button {
   text-align: center;
   color: var(--muted);
   line-height: 1.5;
+  margin: 0;
+}
+
+.status-card .primary-btn {
+  text-decoration: none;
+  display: inline-block;
 }
 
 .verified-card {
@@ -1302,6 +1367,13 @@ button {
   align-items: center;
   gap: 12px;
   margin-top: 18px;
+}
+
+.field-error {
+  margin-top: 14px;
+  color: #b63d3d;
+  font-weight: 600;
+  font-size: 0.85rem;
 }
 
 .approve-btn,

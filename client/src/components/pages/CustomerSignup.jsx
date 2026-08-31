@@ -9,10 +9,18 @@ const emptyForm = {
   password: '',
   confirmPassword: '',
   playerMobileId: '',
-  playerId: '',
   facebook: '',
   instagram: '',
   telegram: '',
+}
+
+const sanitizePhoneInput = (value) => {
+  const normalized = String(value || '').trim()
+  const digits = normalized.replace(/\D/g, '')
+
+  if (!digits) return ''
+
+  return normalized.startsWith('+') ? `+${digits}` : digits
 }
 
 export function CustomerSignupPage() {
@@ -45,7 +53,8 @@ export function CustomerSignupPage() {
 
   const handleChange = (event) => {
     const { name, value } = event.target
-    setForm((current) => ({ ...current, [name]: value }))
+    const nextValue = name === 'phone' ? sanitizePhoneInput(value) : value
+    setForm((current) => ({ ...current, [name]: nextValue }))
   }
 
   const handleRequestOtp = async (event) => {
@@ -165,16 +174,8 @@ export function CustomerSignupPage() {
               </label>
               <label>
                 Phone Number
-                <input name="phone" value={form.phone} onChange={handleChange} placeholder="+1 (555) 123-4567" required />
+                <input name="phone" value={form.phone} onChange={handleChange} placeholder="15551234567 or +15551234567" required />
               </label>
-            </div>
-
-            <div className="field-row two-up">
-              <label>
-                Player ID
-                <input type="number" name="playerId" value={form.playerId} onChange={handleChange} placeholder="Enter numeric player ID" min="0" step="1" />
-              </label>
-              <div />
             </div>
 
             <div className="field-row two-up">
