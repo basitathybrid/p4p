@@ -224,6 +224,9 @@ export function CustomerSignupPage() {
                 {loading ? 'Sending OTP...' : 'Send SMS OTP'}
               </button>
             </div>
+            <p className="otp-label">
+              Already have an account? <Link to="/login">Go to Login</Link>
+            </p>
           </form>
         )}
 

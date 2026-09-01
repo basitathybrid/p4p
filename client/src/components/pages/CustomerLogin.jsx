@@ -94,7 +94,7 @@ export function CustomerLoginPage() {
           </div>
         </form>
 
-        <p className="otp-label">
+        <p className="otp-label login-signup-prompt">
           New here? <Link to="/signup">Create an account</Link>
         </p>
       </div>

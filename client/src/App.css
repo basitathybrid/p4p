@@ -68,23 +68,18 @@ button {
 
 .brand-block {
   display: flex;
-  align-items: baseline;
-  gap: 8px;
+  align-items: center;
   padding: 4px 8px 18px;
   border-bottom: 1px solid rgba(255,255,255,0.08);
   margin-bottom: 16px;
 }
 
-.brand-name {
-  font-size: 2rem;
-  font-weight: 800;
-  line-height: 1;
-}
-
-.brand-sub {
-  font-size: 0.8rem;
-  opacity: 0.9;
-  letter-spacing: 0.02em;
+.brand-logo {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 82px;
+  object-fit: contain;
 }
 
 .sidebar-nav {
@@ -298,6 +293,10 @@ button {
   gap: 12px;
   align-items: center;
   margin-top: 6px;
+}
+
+.otp-label.login-signup-prompt {
+  margin-top: 18px;
 }
 
 .primary-btn,

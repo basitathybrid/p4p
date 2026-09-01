@@ -3,6 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import { Icon } from '../ui/Icon'
 import roles from '../../data/roles'
 import config from '../../config'
+import play4PerksLogo from '../../assets/play4perks-logo.png'
 
 export function AppLayout({ route, children }) {
   const currentRole = roles[route]
@@ -57,8 +58,7 @@ export function AppLayout({ route, children }) {
     <div className="app-shell">
       <aside className="sidebar">
         <div className="brand-block">
-          <div className="brand-name">P4P</div>
-          <div className="brand-sub">Play4Perks</div>
+          <img className="brand-logo" src={play4PerksLogo} alt="Play4Perks" />
         </div>
 
         <nav className="sidebar-nav">

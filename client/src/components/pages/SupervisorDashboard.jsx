@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import * as XLSX from 'xlsx'
 import roles, { tierMap } from '../../data/roles'
 import config from '../../config'
 import { AppLayout } from '../layout/AppLayout'
@@ -47,39 +48,31 @@ const CSV_COLUMNS = [
   ['reviewedAt', 'Reviewed At'],
 ]
 
-function escapeCsvValue(value) {
-  const stringValue = value === undefined || value === null ? '' : String(value)
-  if (/[",\n]/.test(stringValue)) {
-    return `"${stringValue.replace(/"/g, '""')}"`
-  }
-  return stringValue
-}
-
-function buildCsv(rows) {
-  const header = CSV_COLUMNS.map(([, label]) => escapeCsvValue(label)).join(',')
-  const lines = rows.map((row) =>
-    CSV_COLUMNS.map(([key]) => {
-      if (key === 'phone') return escapeCsvValue(formatPhone(row[key]))
-      if (key === 'reviewedAt') return escapeCsvValue(row[key] ? new Date(row[key]).toLocaleString() : '')
-      return escapeCsvValue(row[key])
-    }).join(','),
+function buildApprovedCustomersWorkbook(rows) {
+  const headers = CSV_COLUMNS.map(([, label]) => label)
+  const worksheetRows = rows.map((row) =>
+    Object.fromEntries(CSV_COLUMNS.map(([key, label]) => [
+      label,
+      key === 'phone'
+        ? Number(String(row[key] || '').replace(/\D/g, ''))
+        : key === 'reviewedAt' && row[key]
+          ? new Date(row[key]).toLocaleString()
+          : row[key] ?? '',
+    ])),
   )
-  return [header, ...lines].join('\n')
+  const worksheet = XLSX.utils.json_to_sheet(worksheetRows, { header: headers })
+
+  worksheetRows.forEach((_, index) => {
+    const cell = worksheet[XLSX.utils.encode_cell({ r: index + 1, c: 1 })]
+    if (cell) cell.z = '0'
+  })
+
+  const workbook = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Approved Customers')
+  return workbook
 }
 
-function downloadCsv(filename, csvContent) {
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = filename
-  document.body.appendChild(link)
-  link.click()
-  document.body.removeChild(link)
-  URL.revokeObjectURL(url)
-}
-
-function SupervisorTable() {
+function SupervisorTable({ onPendingApplicationCountChange }) {
   const [applications, setApplications] = useState([])
   const [selectedPhone, setSelectedPhone] = useState('')
   const [form, setForm] = useState(emptyDetails)
@@ -111,6 +104,7 @@ function SupervisorTable() {
 
       const nextApplications = data.applications || []
       setApplications(nextApplications)
+      onPendingApplicationCountChange(nextApplications.length)
 
       const nextSelectedPhone = preferredPhone && nextApplications.some((item) => item.phone === preferredPhone)
         ? preferredPhone
@@ -120,6 +114,7 @@ function SupervisorTable() {
       setStatus({ type: 'idle', message: '' })
     } catch (error) {
       setApplications([])
+      onPendingApplicationCountChange(0)
       setSelectedPhone('')
       setStatus({ type: 'error', message: error.message || 'Unable to load pending applications.' })
     } finally {
@@ -176,23 +171,6 @@ function SupervisorTable() {
     }
 
     return data
-  }
-
-  const handleSave = async () => {
-    if (!selectedApplication) return
-
-    setSaving(true)
-    setStatus({ type: 'idle', message: '' })
-
-    try {
-      await saveApplicationDetails(selectedApplication.phone)
-      await loadApplications(selectedApplication.phone)
-      setStatus({ type: 'success', message: 'Application changes saved.' })
-    } catch (error) {
-      setStatus({ type: 'error', message: error.message || 'Unable to save application changes.' })
-    } finally {
-      setSaving(false)
-    }
   }
 
   const handleDecision = async (decision) => {
@@ -257,9 +235,9 @@ function SupervisorTable() {
         return
       }
 
-      const csvContent = buildCsv(approvedApplications)
       const timestamp = new Date().toISOString().slice(0, 10)
-      downloadCsv(`approved-customers-${timestamp}.csv`, csvContent)
+      const workbook = buildApprovedCustomersWorkbook(approvedApplications)
+      XLSX.writeFile(workbook, `approved-customers-${timestamp}.xlsx`)
       setStatus({ type: 'success', message: `Exported ${approvedApplications.length} approved customer(s).` })
     } catch (error) {
       setStatus({ type: 'error', message: error.message || 'Unable to export approved applications.' })
@@ -267,11 +245,6 @@ function SupervisorTable() {
       setExporting(false)
     }
   }
-
-  const stats = [
-    { ...roles.supervisor.stats[0], value: String(applications.length), note: applications.length ? 'Requires your review' : 'Queue is clear', tone: 'blue' },
-    ...roles.supervisor.stats.slice(1),
-  ]
 
   const workflow = [
     { label: 'Submitted', count: String(applications.length), active: applications.length > 0 },
@@ -288,7 +261,7 @@ function SupervisorTable() {
             <h3>Pending Applications</h3>
             <span className="secondary-badge">{applications.length}</span>
             <button className="ghost-link" onClick={handleExportApproved} disabled={exporting}>
-              {exporting ? 'Exporting…' : 'Export Approved (CSV)'}
+              {exporting ? 'Exporting…' : 'Export Approved (Excel)'}
             </button>
           </div>
           {status.message && (
@@ -376,7 +349,6 @@ function SupervisorTable() {
               Approve
             </button>
             <button className="reject-btn" onClick={() => handleDecision('rejected')} disabled={!selectedApplication || saving || missingRequiredFields}>Reject</button>
-            <button className="save-btn" onClick={handleSave} disabled={!selectedApplication || saving}>Save Changes</button>
           </div>
         </div>
 
@@ -445,8 +417,13 @@ function SupervisorTable() {
 }
 
 export function SupervisorDashboard() {
+  const [pendingApplicationCount, setPendingApplicationCount] = useState(0)
   const stats = [
-    { ...roles.supervisor.stats[0], value: roles.supervisor.stats[0].value },
+    {
+      ...roles.supervisor.stats[0],
+      value: String(pendingApplicationCount),
+      note: pendingApplicationCount ? 'Requires your review' : 'Queue is clear',
+    },
     ...roles.supervisor.stats.slice(1),
   ]
 
@@ -457,17 +434,13 @@ export function SupervisorDashboard() {
           <h1>PayFe Supervisor Dashboard</h1>
           <p>Review applications, audits and customer data.</p>
         </div>
-        <div className="state-pills">
-          <span className="phase-pill"><Icon name="spark" /> Phase 2</span>
-          <span className="approved-pill">Account Approved</span>
-        </div>
       </div>
       <div className="summary-grid five-up supervisor-stats">
         {stats.map((card) => (
           <StatCard key={card.title} title={card.title} value={card.value} note={card.note} tone={card.tone} />
         ))}
       </div>
-      <SupervisorTable />
+      <SupervisorTable onPendingApplicationCountChange={setPendingApplicationCount} />
     </>
   )
 }

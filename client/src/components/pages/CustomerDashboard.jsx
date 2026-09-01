@@ -42,10 +42,10 @@ function CustomerOverview({ application }) {
       <div className="tier-side">
         <div className="tier-card card-light">
           <div className="shield-wrap"><Icon name="shield" /></div>
-          <div className="tier-label">Silver</div>
-          <div className="tier-sub">You’re on the Silver tier!</div>
+          <div className="tier-label">Bronze</div>
+          <div className="tier-sub">You’re on the Bronze tier!</div>
           <div className="tier-progress"><span /></div>
-          <div className="tier-amount">$12,210 / $25,000</div>
+          <div className="tier-amount">$0.00 / $0.00</div>
           <div className="tier-footer">Lifetime Volume to reach Gold tier</div>
           <button className="view-benefits">View Tier Benefits →</button>
         </div>
@@ -63,7 +63,6 @@ function CustomerApprovedDashboard({ application }) {
           <p>Here&apos;s your rewards status and activity overview.</p>
         </div>
         <div className="state-pills">
-          <span className="phase-pill"><Icon name="spark" /> Phase 2</span>
           <span className="approved-pill">Account Approved</span>
         </div>
       </div>
@@ -90,7 +89,9 @@ function CustomerApprovedDashboard({ application }) {
             <tr><th>Date / Time</th><th>Type</th><th>Channel</th><th>Amount (USD)</th><th>Status</th><th>Reference ID</th></tr>
           </thead>
           <tbody>
-            {roles.customer.activity.map((row) => (
+            {roles.customer.activity.length === 0 ? (
+              <tr><td colSpan="6">No transactions yet.</td></tr>
+            ) : roles.customer.activity.map((row) => (
               <tr key={row[5]}>
                 <td>{row[0]}</td>
                 <td><span className="type-badge buy">{row[1]}</span></td>
