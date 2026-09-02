@@ -28,6 +28,7 @@ export function Icon({ name, className = '' }) {
     info: (<svg {...common}><circle cx="12" cy="12" r="8" /><path d="M12 10.5V16M12 7.8h.01" /></svg>),
     trophy: (<svg {...common}><path d="M7 4h10v3a5 5 0 0 1-10 0V4Zm0 0H5.5a2.5 2.5 0 0 0 0 5M17 4h1.5a2.5 2.5 0 0 1 0 5M12 15v3M9 20h6" /></svg>),
     chevron: (<svg {...common}><path d="m9 6 6 6-6 6" /></svg>),
+    menu: (<svg {...common}><path d="M4 7h16M4 12h16M4 17h16" /></svg>),
     spark: (<svg {...common}><path d="m12 2 2.2 6.8L21 11l-6.8 2.2L12 20l-2.2-6.8L3 11l6.8-2.2L12 2Z" /></svg>),
   }
 

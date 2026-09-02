@@ -21,30 +21,32 @@ function BasicUserTable() {
         </div>
 
         <div className="data-table-header">Showing 1 to 10 of 12,458 approved customers</div>
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Phone Number</th>
-              <th>Current Tier</th>
-              <th>Lifetime Volume</th>
-              <th>Transactions</th>
-              <th>Last Activity</th>
-            </tr>
-          </thead>
-          <tbody>
-            {roles.basic.customers.map((row) => (
-              <tr key={row[0]}>
-                <td>{row[0]}</td>
-                <td>{row[1]}</td>
-                <td><TierBadge label={row[2]} /></td>
-                <td>{row[3]}</td>
-                <td>{row[4]}</td>
-                <td>{row[5]}</td>
+        <div className="table-scroll">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Phone Number</th>
+                <th>Current Tier</th>
+                <th>Lifetime Volume</th>
+                <th>Transactions</th>
+                <th>Last Activity</th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {roles.basic.customers.map((row) => (
+                <tr key={row[0]}>
+                  <td>{row[0]}</td>
+                  <td>{row[1]}</td>
+                  <td><TierBadge label={row[2]} /></td>
+                  <td>{row[3]}</td>
+                  <td>{row[4]}</td>
+                  <td>{row[5]}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
         <div className="pagination">
           <button className="page-btn">‹</button>
           <button className="page-btn active">1</button>
@@ -88,22 +90,24 @@ function BasicUserTable() {
 
           <div className="history-block">
             <div className="history-header">Transaction History</div>
-            <table>
-              <thead>
-                <tr><th>ID</th><th>Type</th><th>Date</th><th>Amount</th><th>Status</th></tr>
-              </thead>
-              <tbody>
-                {roles.basic.selected.history.map((row) => (
-                  <tr key={row[0]}>
-                    <td>{row[0]}</td>
-                    <td>{row[1]}</td>
-                    <td>{row[2]}</td>
-                    <td>{row[3]}</td>
-                    <td><StatusBadge text={row[4]} tone="green" /></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="table-scroll">
+              <table>
+                <thead>
+                  <tr><th>ID</th><th>Type</th><th>Date</th><th>Amount</th><th>Status</th></tr>
+                </thead>
+                <tbody>
+                  {roles.basic.selected.history.map((row) => (
+                    <tr key={row[0]}>
+                      <td>{row[0]}</td>
+                      <td>{row[1]}</td>
+                      <td>{row[2]}</td>
+                      <td>{row[3]}</td>
+                      <td><StatusBadge text={row[4]} tone="green" /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </aside>

@@ -9,6 +9,7 @@ export function AppLayout({ route, children }) {
   const currentRole = roles[route]
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [displayUser, setDisplayUser] = useState(currentRole.user)
   const menuRef = useRef(null)
 
@@ -59,14 +60,24 @@ export function AppLayout({ route, children }) {
       <aside className="sidebar">
         <div className="brand-block">
           <img className="brand-logo" src={play4PerksLogo} alt="Play4Perks" />
+          <button
+            type="button"
+            className="mobile-nav-toggle"
+            aria-label="Toggle navigation menu"
+            aria-expanded={mobileNavOpen}
+            onClick={() => setMobileNavOpen((open) => !open)}
+          >
+            <Icon name={mobileNavOpen ? 'x' : 'menu'} />
+          </button>
         </div>
 
-        <nav className="sidebar-nav">
+        <nav className={`sidebar-nav ${mobileNavOpen ? 'mobile-nav-open' : ''}`}>
           {currentRole.sidebar.map((item, index) => (
             <NavLink
               key={item}
               to={route === 'customer' ? '/customer' : route === 'basic' ? '/basic-user' : '/supervisor'}
               className={`nav-item ${index === 0 ? 'active' : ''}`}
+              onClick={() => setMobileNavOpen(false)}
             >
               <span className="nav-icon"><Icon name={['dashboard', 'user', 'card', 'trophy', 'table', 'shield', 'info', 'bell'][index % 8]} /></span>
               {item}

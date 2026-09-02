@@ -84,25 +84,27 @@ function CustomerApprovedDashboard({ application }) {
           <h3>Recent Activity</h3>
           <button className="link-btn">View All Transactions →</button>
         </div>
-        <table>
-          <thead>
-            <tr><th>Date / Time</th><th>Type</th><th>Channel</th><th>Amount (USD)</th><th>Status</th><th>Reference ID</th></tr>
-          </thead>
-          <tbody>
-            {roles.customer.activity.length === 0 ? (
-              <tr><td colSpan="6">No transactions yet.</td></tr>
-            ) : roles.customer.activity.map((row) => (
-              <tr key={row[5]}>
-                <td>{row[0]}</td>
-                <td><span className="type-badge buy">{row[1]}</span></td>
-                <td>{row[2]}</td>
-                <td>{row[3]}</td>
-                <td><StatusBadge text={row[4]} tone="green" /></td>
-                <td>{row[5]}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="table-scroll">
+          <table>
+            <thead>
+              <tr><th>Date / Time</th><th>Type</th><th>Channel</th><th>Amount (USD)</th><th>Status</th><th>Reference ID</th></tr>
+            </thead>
+            <tbody>
+              {roles.customer.activity.length === 0 ? (
+                <tr><td colSpan="6">No transactions yet.</td></tr>
+              ) : roles.customer.activity.map((row) => (
+                <tr key={row[5]}>
+                  <td>{row[0]}</td>
+                  <td><span className="type-badge buy">{row[1]}</span></td>
+                  <td>{row[2]}</td>
+                  <td>{row[3]}</td>
+                  <td><StatusBadge text={row[4]} tone="green" /></td>
+                  <td>{row[5]}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
       <div className="view-only-banner card-light">
         <div className="banner-icon"><Icon name="info" /></div>
