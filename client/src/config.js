@@ -1,4 +1,5 @@
 const ROOT_URL = 'http://localhost:5000/api/';
+// const ROOT_URL = 'http://devapi.play4perks.com/api/';
 // const ROOT_URL = 'http://api.play4perks.com/api/';
 
 // const ROOT_URL = import.meta.env.VITE_API_URL
@@ -10,6 +11,7 @@ const config = {
     Auth: {
       Login: `${ROOT_URL}auth/login`,
       ForgotPassword: `${ROOT_URL}auth/forgot-password`,
+      ChangePassword: `${ROOT_URL}auth/change-password`,
     },
     Customer: {
       Session: `${ROOT_URL}customer/session`,

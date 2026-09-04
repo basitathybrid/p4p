@@ -13,7 +13,11 @@ function createTwilioClient() {
 
 function toE164Phone(phone) {
   const digits = String(phone || '').replace(/\D/g, '');
-  return digits ? `+${digits}` : '';
+  if (!digits) return '';
+
+  // Ensure the US country code is present so Twilio receives a valid E.164 number
+  const withCountryCode = digits.length === 10 ? `1${digits}` : digits;
+  return `+${withCountryCode}`;
 }
 
 function createVerifyService() {

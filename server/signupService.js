@@ -11,7 +11,8 @@ const TWILIO_VERIFIED_OTP = 'TWILIO';
 function normalizePhone(phone) {
   if (!phone) return '';
   const digits = String(phone).replace(/\D/g, '');
-  return digits.length > 10 ? digits : digits;
+  // Always store with the US country code so "5551234567" and "15551234567"/"+15551234567" resolve to one number
+  return digits.length === 10 ? `1${digits}` : digits;
 }
 
 function generateOtpCode() {

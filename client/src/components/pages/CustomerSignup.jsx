@@ -23,11 +23,55 @@ const sanitizePhoneInput = (value) => {
   return normalized.startsWith('+') ? `+${digits}` : digits
 }
 
+const REQUIRED_SIGNUP_FIELDS = ['name', 'phone', 'email', 'playerMobileId', 'password', 'confirmPassword']
+
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+// Accepts a 10-digit US number, optionally prefixed with 1 or +1
+const US_PHONE_PATTERN = /^(\+?1)?\d{10}$/
+
+// Accepts M-665-778-889 format, letter M is case-insensitive
+const PLAYER_MOBILE_ID_PATTERN = /^[Mm]-\d{3}-\d{3}-\d{3}$/
+
+const validateSignupForm = (form) => {
+  const errors = {}
+
+  REQUIRED_SIGNUP_FIELDS.forEach((field) => {
+    if (!String(form[field] || '').trim()) {
+      errors[field] = 'This field is required.'
+    }
+  })
+
+  if (!errors.phone && !US_PHONE_PATTERN.test(form.phone.trim())) {
+    errors.phone = 'Enter a valid US phone number.'
+  }
+
+  if (!errors.playerMobileId && !PLAYER_MOBILE_ID_PATTERN.test(form.playerMobileId.trim())) {
+    errors.playerMobileId = 'Enter a valid player mobile ID, e.g. M-665-778-889.'
+  }
+
+  if (!errors.email && !EMAIL_PATTERN.test(form.email.trim())) {
+    errors.email = 'Enter a valid email address.'
+  }
+
+  if (!errors.password && form.password.length < 8) {
+    errors.password = 'Password must be at least 8 characters.'
+  }
+
+  if (!errors.confirmPassword && !errors.password && form.password !== form.confirmPassword) {
+    errors.confirmPassword = 'Passwords do not match.'
+  }
+
+  return errors
+}
+
 export function CustomerSignupPage() {
   const location = useLocation()
   const navigate = useNavigate()
   const [form, setForm] = useState(emptyForm)
+  const [fieldErrors, setFieldErrors] = useState({})
   const [otpCode, setOtpCode] = useState('')
+  const [otpError, setOtpError] = useState('')
   const [step, setStep] = useState('form')
   const [status, setStatus] = useState({ type: 'idle', message: '' })
   const [loading, setLoading] = useState(false)
@@ -55,22 +99,25 @@ export function CustomerSignupPage() {
     const { name, value } = event.target
     const nextValue = name === 'phone' ? sanitizePhoneInput(value) : value
     setForm((current) => ({ ...current, [name]: nextValue }))
+    setFieldErrors((current) => {
+      if (!current[name]) return current
+      const next = { ...current }
+      delete next[name]
+      return next
+    })
   }
 
   const handleRequestOtp = async (event) => {
     event.preventDefault()
     setStatus({ type: 'idle', message: '' })
 
-    if (form.password.length < 8) {
-      setStatus({ type: 'error', message: 'Password must be at least 8 characters.' })
+    const errors = validateSignupForm(form)
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors)
       return
     }
 
-    if (form.password !== form.confirmPassword) {
-      setStatus({ type: 'error', message: 'Passwords do not match.' })
-      return
-    }
-
+    setFieldErrors({})
     setLoading(true)
 
     try {
@@ -109,8 +156,15 @@ export function CustomerSignupPage() {
 
   const handleVerifyOtp = async (event) => {
     event.preventDefault()
-    setLoading(true)
     setStatus({ type: 'idle', message: '' })
+
+    if (!otpCode.trim()) {
+      setOtpError('This field is required.')
+      return
+    }
+
+    setOtpError('')
+    setLoading(true)
 
     try {
       const response = await fetch(config.REST_API.Signup.Verify, {
@@ -144,7 +198,9 @@ export function CustomerSignupPage() {
 
   const startOver = () => {
     setForm(emptyForm)
+    setFieldErrors({})
     setOtpCode('')
+    setOtpError('')
     setStep('form')
     setLockoutRemaining(0)
     setStatus({ type: 'idle', message: '' })
@@ -166,37 +222,43 @@ export function CustomerSignupPage() {
         )}
 
         {step === 'form' && (
-          <form onSubmit={handleRequestOtp} className="signup-form">
+          <form onSubmit={handleRequestOtp} className="signup-form" noValidate>
             <div className="field-row two-up">
               <label>
                 Full Name
-                <input name="name" value={form.name} onChange={handleChange} placeholder="Enter full name" required />
+                <input name="name" value={form.name} onChange={handleChange} placeholder="Enter full name" className={fieldErrors.name ? 'input-error' : ''} />
+                {fieldErrors.name && <span className="field-error-msg">{fieldErrors.name}</span>}
               </label>
               <label>
                 Phone Number
-                <input name="phone" value={form.phone} onChange={handleChange} placeholder="15551234567 or +15551234567" required />
+                <input name="phone" value={form.phone} onChange={handleChange} placeholder="5551234567" className={fieldErrors.phone ? 'input-error' : ''} />
+                {fieldErrors.phone && <span className="field-error-msg">{fieldErrors.phone}</span>}
               </label>
             </div>
 
             <div className="field-row two-up">
               <label>
                 Email Address
-                <input type="email" name="email" value={form.email} onChange={handleChange} placeholder="name@example.com" required />
+                <input type="email" name="email" value={form.email} onChange={handleChange} placeholder="name@example.com" className={fieldErrors.email ? 'input-error' : ''} />
+                {fieldErrors.email && <span className="field-error-msg">{fieldErrors.email}</span>}
               </label>
               <label>
                 Player Mobile ID
-                <input name="playerMobileId" value={form.playerMobileId} onChange={handleChange} placeholder="Enter player mobile ID" required />
+                <input name="playerMobileId" value={form.playerMobileId} onChange={handleChange} placeholder="e.g. M-665-778-889" className={fieldErrors.playerMobileId ? 'input-error' : ''} />
+                {fieldErrors.playerMobileId && <span className="field-error-msg">{fieldErrors.playerMobileId}</span>}
               </label>
             </div>
 
             <div className="field-row two-up">
               <label>
                 Password
-                <input type="password" name="password" value={form.password} onChange={handleChange} placeholder="At least 8 characters" required minLength={8} />
+                <input type="password" name="password" value={form.password} onChange={handleChange} placeholder="At least 8 characters" className={fieldErrors.password ? 'input-error' : ''} />
+                {fieldErrors.password && <span className="field-error-msg">{fieldErrors.password}</span>}
               </label>
               <label>
                 Confirm Password
-                <input type="password" name="confirmPassword" value={form.confirmPassword} onChange={handleChange} placeholder="Re-enter password" required minLength={8} />
+                <input type="password" name="confirmPassword" value={form.confirmPassword} onChange={handleChange} placeholder="Re-enter password" className={fieldErrors.confirmPassword ? 'input-error' : ''} />
+                {fieldErrors.confirmPassword && <span className="field-error-msg">{fieldErrors.confirmPassword}</span>}
               </label>
             </div>
 
@@ -231,17 +293,20 @@ export function CustomerSignupPage() {
         )}
 
         {step === 'otp' && (
-          <form onSubmit={handleVerifyOtp} className="otp-form">
+          <form onSubmit={handleVerifyOtp} className="otp-form" noValidate>
             <p className="otp-label">Enter the 6-digit OTP sent to {form.phone}</p>
             <input
-              className="otp-input"
+              className={`otp-input${otpError ? ' input-error' : ''}`}
               inputMode="numeric"
               maxLength={6}
               value={otpCode}
-              onChange={(event) => setOtpCode(event.target.value.replace(/\D/g, '').slice(0, 6))}
+              onChange={(event) => {
+                setOtpCode(event.target.value.replace(/\D/g, '').slice(0, 6))
+                if (otpError) setOtpError('')
+              }}
               placeholder="123456"
-              required
             />
+            {otpError && <span className="field-error-msg">{otpError}</span>}
             <div className="signup-actions">
               <button type="submit" className="primary-btn" disabled={loading}>
                 {loading ? 'Verifying...' : 'Verify OTP'}

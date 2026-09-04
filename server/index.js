@@ -6,7 +6,7 @@ require('dotenv').config();
 const db = require('./db');
 const { startOtpVerification, checkOtpVerification, sendReviewDecisionSms } = require('./services/twilioService');
 const { sendTemporaryPasswordEmail } = require('./services/emailService');
-const { signCustomerToken, signSupervisorToken, requireCustomerAuth, requireSupervisorAuth } = require('./auth');
+const { signCustomerToken, signSupervisorToken, requireCustomerAuth, requireSupervisorAuth, requireAuth } = require('./auth');
 const {
   createSignupSession,
   verifySignupOtp,
@@ -249,6 +249,44 @@ app.post('/api/auth/forgot-password', async (req, res) => {
   } catch (error) {
     console.error('password reset failed:', error);
     return res.status(500).json({ success: false, code: 'SERVER_ERROR', message: 'Unable to process the password reset request. Please try again later.' });
+  }
+});
+
+app.post('/api/auth/change-password', requireAuth(), async (req, res) => {
+  try {
+    const { oldPassword, newPassword } = req.body || {};
+
+    if (!oldPassword || !newPassword) {
+      return res.status(400).json({ success: false, code: 'VALIDATION_ERROR', message: 'Current and new password are required.' });
+    }
+
+    if (String(newPassword).length < 8) {
+      return res.status(400).json({ success: false, code: 'INVALID_PASSWORD', message: 'New password must be at least 8 characters.' });
+    }
+
+    if (req.user.role === 'supervisor') {
+      const [rows] = await db.query('SELECT password_hash FROM supervisors WHERE id = ?', [req.user.id]);
+
+      if (!rows[0] || !(await bcrypt.compare(String(oldPassword), rows[0].password_hash))) {
+        return res.status(401).json({ success: false, code: 'INVALID_CREDENTIALS', message: 'Current password is incorrect.' });
+      }
+
+      const passwordHash = await bcrypt.hash(String(newPassword), 10);
+      await db.query('UPDATE supervisors SET password_hash = ? WHERE id = ?', [passwordHash, req.user.id]);
+      return res.status(200).json({ success: true, message: 'Password updated successfully.' });
+    }
+
+    const [rows] = await db.query('SELECT password_hash FROM customers WHERE phone = ?', [req.customerPhone]);
+
+    if (!rows[0] || !(await bcrypt.compare(String(oldPassword), rows[0].password_hash))) {
+      return res.status(401).json({ success: false, code: 'INVALID_CREDENTIALS', message: 'Current password is incorrect.' });
+    }
+
+    await updateCustomerPassword(req.customerPhone, newPassword);
+    return res.status(200).json({ success: true, message: 'Password updated successfully.' });
+  } catch (error) {
+    console.error('change password failed:', error);
+    return res.status(500).json({ success: false, code: 'SERVER_ERROR', message: 'Unable to change password.', error: error.message });
   }
 });
 

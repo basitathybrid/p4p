@@ -27,7 +27,9 @@ const emptyDetails = {
 
 function formatPhone(phone) {
   if (!phone) return ''
-  return phone.startsWith('+') ? phone : `+${phone}`
+  if (phone.startsWith('+')) return phone
+  const digits = phone.replace(/\D/g, '')
+  return digits.length === 10 ? `+1${digits}` : `+${digits}`
 }
 
 function formatSubmittedAt(value) {
@@ -72,7 +74,7 @@ function buildApprovedCustomersWorkbook(rows) {
   return workbook
 }
 
-function SupervisorTable({ onPendingApplicationCountChange }) {
+function SupervisorTable({ onStatusCountsChange }) {
   const [applications, setApplications] = useState([])
   const [selectedPhone, setSelectedPhone] = useState('')
   const [form, setForm] = useState(emptyDetails)
@@ -80,20 +82,31 @@ function SupervisorTable({ onPendingApplicationCountChange }) {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [exporting, setExporting] = useState(false)
+  const [statusCounts, setStatusCounts] = useState({ submitted: 0, pendingReview: 0, decided: 0, active: 0 })
 
   const selectedApplication = useMemo(
     () => applications.find((item) => item.phone === selectedPhone) || null,
     [applications, selectedPhone],
   )
 
+  const playerIdError = useMemo(() => {
+    if (!selectedApplication) return ''
+    const raw = String(form.playerId || '').trim()
+    if (!raw) return 'Player ID is required.'
+    if (!/^\d{7}$/.test(raw) || Number(raw) <= 0) return 'Player ID must be a 7-digit number greater than 0.'
+    return ''
+  }, [selectedApplication, form.playerId])
+
   const missingRequiredFields = Boolean(selectedApplication) &&
-    (!String(form.playerId || '').trim() || !String(form.playerMobileId || '').trim())
+    (Boolean(playerIdError) || !String(form.playerMobileId || '').trim())
+
+  const missingApprovalFields = missingRequiredFields
 
   const loadApplications = async (preferredPhone) => {
     setLoading(true)
 
     try {
-      const response = await fetch(`${config.REST_API.Review.Applications}?status=pending_review`, {
+      const response = await fetch(config.REST_API.Review.Applications, {
         headers: SUPERVISOR_HEADERS(),
       })
       const data = await response.json()
@@ -102,19 +115,29 @@ function SupervisorTable({ onPendingApplicationCountChange }) {
         throw new Error(data.message || 'Unable to load applications.')
       }
 
-      const nextApplications = data.applications || []
-      setApplications(nextApplications)
-      onPendingApplicationCountChange(nextApplications.length)
+      const allApplications = data.applications || []
+      const pendingApplications = allApplications.filter((item) => item.status === 'pending_review')
 
-      const nextSelectedPhone = preferredPhone && nextApplications.some((item) => item.phone === preferredPhone)
+      setApplications(pendingApplications)
+      const nextStatusCounts = {
+        submitted: allApplications.length,
+        pendingReview: pendingApplications.length,
+        decided: allApplications.filter((item) => item.status === 'approved' || item.status === 'rejected').length,
+        active: allApplications.filter((item) => item.status === 'approved').length,
+      }
+      setStatusCounts(nextStatusCounts)
+      onStatusCountsChange(nextStatusCounts)
+
+      const nextSelectedPhone = preferredPhone && pendingApplications.some((item) => item.phone === preferredPhone)
         ? preferredPhone
-        : nextApplications[0]?.phone || ''
+        : pendingApplications[0]?.phone || ''
 
       setSelectedPhone(nextSelectedPhone)
       setStatus({ type: 'idle', message: '' })
     } catch (error) {
       setApplications([])
-      onPendingApplicationCountChange(0)
+      onStatusCountsChange({ submitted: 0, pendingReview: 0, decided: 0, active: 0 })
+      setStatusCounts({ submitted: 0, pendingReview: 0, decided: 0, active: 0 })
       setSelectedPhone('')
       setStatus({ type: 'error', message: error.message || 'Unable to load pending applications.' })
     } finally {
@@ -176,10 +199,10 @@ function SupervisorTable({ onPendingApplicationCountChange }) {
   const handleDecision = async (decision) => {
     if (!selectedApplication) return
 
-    if (missingRequiredFields) {
+    if (decision === 'approved' && missingApprovalFields) {
       setStatus({
         type: 'error',
-        message: 'Player ID and Player Mobile ID are required before an application can be approved or rejected.',
+        message: 'Player ID and Player Mobile ID are required before an application can be approved.',
       })
       return
     }
@@ -247,10 +270,10 @@ function SupervisorTable({ onPendingApplicationCountChange }) {
   }
 
   const workflow = [
-    { label: 'Submitted', count: String(applications.length), active: applications.length > 0 },
-    { label: 'Pending Supervisor Review', count: String(applications.length), active: applications.length > 0 },
-    roles.supervisor.workflow[2],
-    roles.supervisor.workflow[3],
+    { label: 'Submitted', count: String(statusCounts.submitted), active: statusCounts.submitted > 0 },
+    { label: 'Pending Supervisor Review', count: String(statusCounts.pendingReview), active: statusCounts.pendingReview > 0 },
+    { label: 'Approved / Rejected', count: String(statusCounts.decided), active: statusCounts.decided > 0 },
+    { label: 'Active & Eligible', count: String(statusCounts.active), active: statusCounts.active > 0 },
   ]
 
   return (
@@ -321,7 +344,8 @@ function SupervisorTable({ onPendingApplicationCountChange }) {
             </label>
             <label>
               <span>Player ID</span>
-              <input type="number" name="playerId" value={form.playerId} onChange={handleChange} min="0" step="1" disabled={!selectedApplication || saving} />
+              <input type="number" name="playerId" value={form.playerId} onChange={handleChange} min="1" step="1" className={playerIdError ? 'input-error' : ''} disabled={!selectedApplication || saving} />
+              {playerIdError && <span className="field-error-msg">{playerIdError}</span>}
             </label>
             <label>
               <span>Facebook Link</span>
@@ -338,26 +362,26 @@ function SupervisorTable({ onPendingApplicationCountChange }) {
             <div><span>Status</span><strong>{form.status}</strong></div>
           </div>
           {missingRequiredFields && (
-            <div className="field-error">Player ID and Player Mobile ID are required before this application can be approved or rejected.</div>
+            <div className="field-error">Player ID (7-digit number) and Player Mobile ID are required before this application can be approved.</div>
           )}
           <div className="approval-actions">
             <button
               className="approve-btn"
               onClick={() => handleDecision('approved')}
-              disabled={!selectedApplication || saving || missingRequiredFields}
+              disabled={!selectedApplication || saving || missingApprovalFields}
             >
               Approve
             </button>
-            <button className="reject-btn" onClick={() => handleDecision('rejected')} disabled={!selectedApplication || saving || missingRequiredFields}>Reject</button>
+            <button className="reject-btn" onClick={() => handleDecision('rejected')} disabled={!selectedApplication || saving}>Reject</button>
           </div>
         </div>
 
         <div className="workflow-panel card-light">
           <div className="workflow-head">Application Status & Workflow</div>
           <div className="workflow-steps">
-            {workflow.map((step, index) => (
+            {workflow.map((step) => (
               <div key={step.label} className={`workflow-step ${step.active ? 'active' : ''}`}>
-                <div className="step-dot">{step.active ? '✓' : index + 1}</div>
+                {step.active && <div className="step-dot">✓</div>}
                 <div className="step-count">{step.count}</div>
                 <div className="step-name">{step.label}</div>
               </div>
@@ -370,7 +394,6 @@ function SupervisorTable({ onPendingApplicationCountChange }) {
         <div className="upload-panel card-light">
           <div className="upload-header">
             <h3>P3M Upload</h3>
-            <span className="phase-tag">Phase 2</span>
           </div>
           <div className="upload-zone">
             <div className="upload-illustration"><Icon name="upload" /></div>
@@ -417,14 +440,25 @@ function SupervisorTable({ onPendingApplicationCountChange }) {
 }
 
 export function SupervisorDashboard() {
-  const [pendingApplicationCount, setPendingApplicationCount] = useState(0)
+  const [statusCounts, setStatusCounts] = useState({ submitted: 0, pendingReview: 0, decided: 0, active: 0 })
   const stats = [
     {
       ...roles.supervisor.stats[0],
-      value: String(pendingApplicationCount),
-      note: pendingApplicationCount ? 'Requires your review' : 'Queue is clear',
+      value: String(statusCounts.pendingReview),
+      note: statusCounts.pendingReview ? 'Requires your review' : 'Queue is clear',
     },
-    ...roles.supervisor.stats.slice(1),
+    {
+      ...roles.supervisor.stats[1],
+      value: String(statusCounts.active),
+      note: statusCounts.active ? 'Approved & active today' : 'No approved customers yet',
+    },
+    roles.supervisor.stats[2],
+    roles.supervisor.stats[3],
+    {
+      ...roles.supervisor.stats[4],
+      value: String(statusCounts.active),
+      note: 'All time',
+    },
   ]
 
   return (
@@ -440,7 +474,7 @@ export function SupervisorDashboard() {
           <StatCard key={card.title} title={card.title} value={card.value} note={card.note} tone={card.tone} />
         ))}
       </div>
-      <SupervisorTable onPendingApplicationCountChange={setPendingApplicationCount} />
+      <SupervisorTable onStatusCountsChange={setStatusCounts} />
     </>
   )
 }

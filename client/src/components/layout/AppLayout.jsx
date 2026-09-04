@@ -11,6 +11,11 @@ export function AppLayout({ route, children }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [displayUser, setDisplayUser] = useState(currentRole.user)
+  const [showChangePassword, setShowChangePassword] = useState(false)
+  const [passwordForm, setPasswordForm] = useState({ oldPassword: '', newPassword: '', confirmPassword: '' })
+  const [passwordFieldErrors, setPasswordFieldErrors] = useState({})
+  const [passwordStatus, setPasswordStatus] = useState({ type: 'idle', message: '' })
+  const [changingPassword, setChangingPassword] = useState(false)
   const menuRef = useRef(null)
 
   useEffect(() => {
@@ -52,7 +57,81 @@ export function AppLayout({ route, children }) {
     localStorage.removeItem('p4p_supervisor_name')
     localStorage.removeItem('p4p_customer_token')
     localStorage.removeItem('p4p_customer_phone')
-    navigate('/login')
+    navigate(route === 'supervisor' ? '/supervisorlogin' : '/login')
+  }
+
+  const openChangePassword = () => {
+    setMenuOpen(false)
+    setPasswordForm({ oldPassword: '', newPassword: '', confirmPassword: '' })
+    setPasswordFieldErrors({})
+    setPasswordStatus({ type: 'idle', message: '' })
+    setShowChangePassword(true)
+  }
+
+  const closeChangePassword = () => {
+    setShowChangePassword(false)
+  }
+
+  const handlePasswordFieldChange = (event) => {
+    const { name, value } = event.target
+    setPasswordForm((current) => ({ ...current, [name]: value }))
+    setPasswordFieldErrors((current) => {
+      if (!current[name]) return current
+      const next = { ...current }
+      delete next[name]
+      return next
+    })
+  }
+
+  const handleChangePasswordSubmit = async (event) => {
+    event.preventDefault()
+    setPasswordStatus({ type: 'idle', message: '' })
+
+    const errors = {}
+    if (!passwordForm.oldPassword.trim()) errors.oldPassword = 'This field is required.'
+    if (!passwordForm.newPassword.trim()) {
+      errors.newPassword = 'This field is required.'
+    } else if (passwordForm.newPassword.length < 8) {
+      errors.newPassword = 'Password must be at least 8 characters.'
+    }
+    if (!passwordForm.confirmPassword.trim()) {
+      errors.confirmPassword = 'This field is required.'
+    } else if (!errors.newPassword && passwordForm.confirmPassword !== passwordForm.newPassword) {
+      errors.confirmPassword = 'Passwords do not match.'
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setPasswordFieldErrors(errors)
+      return
+    }
+
+    setPasswordFieldErrors({})
+    setChangingPassword(true)
+
+    const token = route === 'supervisor'
+      ? localStorage.getItem('p4p_supervisor_token')
+      : localStorage.getItem('p4p_customer_token')
+
+    try {
+      const response = await fetch(config.REST_API.Auth.ChangePassword, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ oldPassword: passwordForm.oldPassword, newPassword: passwordForm.newPassword }),
+      })
+      const data = await response.json()
+
+      if (!response.ok) {
+        setPasswordStatus({ type: 'error', message: data.message || 'Unable to change password.' })
+        return
+      }
+
+      setPasswordStatus({ type: 'success', message: data.message || 'Password updated successfully.' })
+      setPasswordForm({ oldPassword: '', newPassword: '', confirmPassword: '' })
+    } catch (error) {
+      setPasswordStatus({ type: 'error', message: 'Something went wrong while changing your password.' })
+    } finally {
+      setChangingPassword(false)
+    }
   }
 
   return (
@@ -117,6 +196,7 @@ export function AppLayout({ route, children }) {
               </button>
               {menuOpen && (
                 <div className="toolbar-dropdown">
+                  <button className="toolbar-dropdown-item" onClick={openChangePassword}>Change Password</button>
                   <button className="toolbar-dropdown-item" onClick={handleLogout}>Logout</button>
                 </div>
               )}
@@ -126,6 +206,69 @@ export function AppLayout({ route, children }) {
 
         <div className="content-area">{children}</div>
       </main>
+
+      {showChangePassword && (
+        <div className="modal-overlay" onClick={closeChangePassword}>
+          <div className="modal-card" onClick={(event) => event.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Change Password</h3>
+              <button type="button" className="modal-close" aria-label="Close" onClick={closeChangePassword}>
+                <Icon name="x" />
+              </button>
+            </div>
+
+            {passwordStatus.message && (
+              <div className={`status-banner ${passwordStatus.type}`}>{passwordStatus.message}</div>
+            )}
+
+            <form onSubmit={handleChangePasswordSubmit} className="signup-form" noValidate>
+              <label>
+                Current Password
+                <input
+                  type="password"
+                  name="oldPassword"
+                  value={passwordForm.oldPassword}
+                  onChange={handlePasswordFieldChange}
+                  placeholder="Enter current password"
+                  className={passwordFieldErrors.oldPassword ? 'input-error' : ''}
+                />
+                {passwordFieldErrors.oldPassword && <span className="field-error-msg">{passwordFieldErrors.oldPassword}</span>}
+              </label>
+              <label>
+                New Password
+                <input
+                  type="password"
+                  name="newPassword"
+                  value={passwordForm.newPassword}
+                  onChange={handlePasswordFieldChange}
+                  placeholder="At least 8 characters"
+                  className={passwordFieldErrors.newPassword ? 'input-error' : ''}
+                />
+                {passwordFieldErrors.newPassword && <span className="field-error-msg">{passwordFieldErrors.newPassword}</span>}
+              </label>
+              <label>
+                Confirm New Password
+                <input
+                  type="password"
+                  name="confirmPassword"
+                  value={passwordForm.confirmPassword}
+                  onChange={handlePasswordFieldChange}
+                  placeholder="Re-enter new password"
+                  className={passwordFieldErrors.confirmPassword ? 'input-error' : ''}
+                />
+                {passwordFieldErrors.confirmPassword && <span className="field-error-msg">{passwordFieldErrors.confirmPassword}</span>}
+              </label>
+
+              <div className="signup-actions">
+                <button type="submit" className="primary-btn" disabled={changingPassword}>
+                  {changingPassword ? 'Updating...' : 'Update Password'}
+                </button>
+                <button type="button" className="secondary-btn" onClick={closeChangePassword} disabled={changingPassword}>Cancel</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

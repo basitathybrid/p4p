@@ -28,7 +28,12 @@ test.beforeEach(async () => {
 
 test('normalizePhone strips non-digits and keeps a valid E.164-like number', () => {
   assert.equal(normalizePhone('+1 (415) 555-0133'), '14155550133');
-  assert.equal(normalizePhone('4155550133'), '4155550133');
+  assert.equal(normalizePhone('4155550133'), '14155550133');
+});
+
+test('normalizePhone treats numbers with and without the US country code as the same number', () => {
+  assert.equal(normalizePhone('4155550133'), normalizePhone('14155550133'));
+  assert.equal(normalizePhone('4155550133'), normalizePhone('+14155550133'));
 });
 
 test('createSignupSession requires a player mobile ID', async () => {

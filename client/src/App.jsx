@@ -5,6 +5,7 @@ import { BasicUserPage } from './components/pages/BasicUserDashboard'
 import { SupervisorPage } from './components/pages/SupervisorDashboard'
 import { CustomerSignupPage } from './components/pages/CustomerSignup'
 import { CustomerLoginPage } from './components/pages/CustomerLogin'
+import { SupervisorLoginPage } from './components/pages/SupervisorLogin'
 
 function ProtectedRoute({ children, allowedRole }) {
   const role = localStorage.getItem('p4p_user_role')
@@ -13,7 +14,7 @@ function ProtectedRoute({ children, allowedRole }) {
     : localStorage.getItem('p4p_customer_token')
 
   if (!token || role !== allowedRole) {
-    return <Navigate to="/login" replace />
+    return <Navigate to={allowedRole === 'supervisor' ? '/supervisorlogin' : '/login'} replace />
   }
 
   return children
@@ -28,6 +29,7 @@ function App() {
       <Route path="/supervisor" element={<ProtectedRoute allowedRole="supervisor"><SupervisorPage /></ProtectedRoute>} />
       <Route path="/signup" element={<CustomerSignupPage />} />
       <Route path="/login" element={<CustomerLoginPage />} />
+      <Route path="/supervisorlogin" element={<SupervisorLoginPage />} />
     </Routes>
   )
 }
