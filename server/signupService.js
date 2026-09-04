@@ -1,4 +1,5 @@
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 const db = require('./db');
 
 const MAX_ATTEMPTS = 3;
@@ -91,6 +92,40 @@ async function loginCustomer(phone, password) {
   }
 
   return { success: true, phone: normalizedPhone };
+}
+
+async function createCustomerPasswordReset(email) {
+  const normalizedEmail = String(email || '').trim().toLowerCase();
+
+  if (!normalizedEmail) {
+    return { success: false, code: 'INVALID_EMAIL' };
+  }
+
+  const [rows] = await db.query(
+    `SELECT customers.phone, applications.name, applications.email
+     FROM customers
+     INNER JOIN applications ON applications.phone = customers.phone
+     WHERE LOWER(applications.email) = ?
+     LIMIT 1`,
+    [normalizedEmail]
+  );
+
+  if (!rows[0]) {
+    return { success: false, code: 'NOT_FOUND' };
+  }
+
+  return {
+    success: true,
+    phone: rows[0].phone,
+    name: rows[0].name,
+    email: rows[0].email,
+    temporaryPassword: crypto.randomBytes(18).toString('base64url'),
+  };
+}
+
+async function updateCustomerPassword(phone, password) {
+  const passwordHash = await bcrypt.hash(String(password), 10);
+  await db.query('UPDATE customers SET password_hash = ? WHERE phone = ?', [passwordHash, normalizePhone(phone)]);
 }
 
 async function createSignupSession(payload) {
@@ -303,5 +338,7 @@ module.exports = {
   decideApplication,
   getRegisteredPhones,
   loginCustomer,
+  createCustomerPasswordReset,
+  updateCustomerPassword,
   resetSignupState,
 };

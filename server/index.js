@@ -5,6 +5,7 @@ require('dotenv').config();
 
 const db = require('./db');
 const { startOtpVerification, checkOtpVerification, sendReviewDecisionSms } = require('./services/twilioService');
+const { sendTemporaryPasswordEmail } = require('./services/emailService');
 const { signCustomerToken, signSupervisorToken, requireCustomerAuth, requireSupervisorAuth } = require('./auth');
 const {
   createSignupSession,
@@ -16,6 +17,8 @@ const {
   decideApplication,
   getRegisteredPhones,
   loginCustomer,
+  createCustomerPasswordReset,
+  updateCustomerPassword,
 } = require('./signupService');
 
 const app = express();
@@ -223,6 +226,29 @@ app.post('/api/auth/login', async (req, res) => {
   } catch (error) {
     console.error('login failed:', error);
     return res.status(500).json({ success: false, code: 'SERVER_ERROR', message: 'Unable to log in.', error: error.message });
+  }
+});
+
+app.post('/api/auth/forgot-password', async (req, res) => {
+  const genericResponse = {
+    success: true,
+    message: 'If an account matches that email address, a temporary password has been sent.',
+  };
+
+  try {
+    const reset = await createCustomerPasswordReset(req.body?.email);
+
+    if (!reset.success) {
+      return res.status(200).json(genericResponse);
+    }
+
+    // persist the new password before emailing it so a failed send never leaves a stale hash
+    await updateCustomerPassword(reset.phone, reset.temporaryPassword);
+    await sendTemporaryPasswordEmail(reset);
+    return res.status(200).json(genericResponse);
+  } catch (error) {
+    console.error('password reset failed:', error);
+    return res.status(500).json({ success: false, code: 'SERVER_ERROR', message: 'Unable to process the password reset request. Please try again later.' });
   }
 });
 

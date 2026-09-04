@@ -9,6 +9,7 @@ const config = {
   REST_API: {
     Auth: {
       Login: `${ROOT_URL}auth/login`,
+      ForgotPassword: `${ROOT_URL}auth/forgot-password`,
     },
     Customer: {
       Session: `${ROOT_URL}customer/session`,
