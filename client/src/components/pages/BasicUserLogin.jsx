@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import config from '../../config'
 
-export function SupervisorLoginPage() {
+export function BasicUserLoginPage() {
   const navigate = useNavigate()
   const [form, setForm] = useState({ identifier: '', password: '' })
   const [fieldErrors, setFieldErrors] = useState({})
@@ -40,20 +40,20 @@ export function SupervisorLoginPage() {
       const response = await fetch(config.REST_API.Auth.Login, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ identifier: form.identifier, password: form.password, portal: 'supervisor' }),
+        body: JSON.stringify({ identifier: form.identifier, password: form.password, portal: 'basic' }),
       })
 
       const data = await response.json()
 
-      if (!response.ok || data.role !== 'supervisor') {
+      if (!response.ok || data.role !== 'basic') {
         setStatus({ type: 'error', message: data.message || 'Login failed.' })
         return
       }
 
       localStorage.setItem('p4p_user_role', data.role)
-      localStorage.setItem('p4p_supervisor_token', data.token)
-      localStorage.setItem('p4p_supervisor_name', data.user?.name || 'Supervisor')
-      navigate('/supervisor')
+      localStorage.setItem('p4p_basic_token', data.token)
+      localStorage.setItem('p4p_basic_username', data.user?.name || 'Basic User')
+      navigate('/basic-user')
     } catch (error) {
       setStatus({ type: 'error', message: 'Something went wrong while logging in.' })
     } finally {
@@ -67,7 +67,7 @@ export function SupervisorLoginPage() {
         <div className="signup-header">
           <div>
             <p className="eyebrow">P4P Account</p>
-            <h1>Supervisor Login</h1>
+            <h1>Basic User Login</h1>
           </div>
         </div>
 
@@ -100,4 +100,4 @@ export function SupervisorLoginPage() {
   )
 }
 
-export default SupervisorLoginPage
+export default BasicUserLoginPage

@@ -20,6 +20,15 @@ function signSupervisorToken(user) {
   }, 'supervisor');
 }
 
+function signBasicUserToken(user) {
+  return signToken({
+    id: user.id,
+    name: user.name,
+    email: user.email,
+    username: user.username,
+  }, 'basic');
+}
+
 function requireAuth(requiredRole) {
   return (req, res, next) => {
     const authHeader = String(req.header('authorization') || '');
@@ -54,10 +63,16 @@ function requireSupervisorAuth(req, res, next) {
   return requireAuth('supervisor')(req, res, next);
 }
 
+function requireBasicUserAuth(req, res, next) {
+  return requireAuth('basic')(req, res, next);
+}
+
 module.exports = {
   signCustomerToken,
   signSupervisorToken,
+  signBasicUserToken,
   requireCustomerAuth,
   requireSupervisorAuth,
+  requireBasicUserAuth,
   requireAuth,
 };

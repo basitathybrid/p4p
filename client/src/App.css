@@ -35,8 +35,8 @@
 
 html, body, #root {
   margin: 0;
-  min-height: 100%;
-  height: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
   font-family: Inter, 'Segoe UI', sans-serif;
   background: var(--bg);
   color: var(--text);
@@ -210,6 +210,7 @@ button {
 
 .signup-shell {
   min-height: 100vh;
+  min-height: 100dvh;
   display: grid;
   place-items: center;
   padding: 32px 16px;
@@ -217,7 +218,7 @@ button {
 }
 
 .signup-card {
-  width: min(860px, 100%);
+  width: clamp(min(860px, 100%), 42vw, 1180px);
   background: rgba(255,255,255,0.96);
   border: 1px solid var(--line);
   border-radius: 22px;
@@ -1044,6 +1045,12 @@ button {
   margin-bottom: 16px;
 }
 
+.view-only-alert svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
 .basic-user-layout,
 .supervisor-layout {
   display: grid;
@@ -1755,7 +1762,7 @@ button {
   }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 960px) {
   .page-header,
   .view-only-banner {
     align-items: flex-start;
@@ -1944,5 +1951,38 @@ button {
 
   .mini-inputs span {
     display: none;
+  }
+}
+
+@media (min-width: 1920px) {
+  .signup-card {
+    padding: 40px;
+    border-radius: 26px;
+  }
+
+  .eyebrow {
+    font-size: 0.9rem;
+  }
+
+  .signup-header h1 {
+    font-size: 3.1rem;
+  }
+
+  .signup-form label,
+  .otp-form label {
+    font-size: 1.1rem;
+  }
+
+  .signup-form input,
+  .otp-input {
+    height: 56px;
+    font-size: 1.15rem;
+    border-radius: 14px;
+  }
+
+  .primary-btn,
+  .secondary-btn {
+    padding: 15px 22px;
+    font-size: 1.05rem;
   }
 }

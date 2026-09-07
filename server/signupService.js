@@ -149,6 +149,10 @@ async function createSignupSession(payload) {
     };
   }
 
+  if (!/^[A-Za-z][A-Za-z '.-]*$/.test(String(payload.name || '').trim())) {
+    return { success: false, code: 'INVALID_NAME' };
+  }
+
   if (!String(payload.playerMobileId || '').trim()) {
     return { success: false, code: 'INVALID_PLAYER_MOBILE_ID' };
   }

@@ -17,11 +17,11 @@ export const roles = {
     sidebar: ['Dashboard', 'Customers', 'Transactions', 'Rewards & Tiers', 'Usage Summary', 'Reports', 'Audit Logs', 'Settings'],
     user: { name: 'Jordan Lee', role: 'PayFe Basic User' },
     stats: [
-      { title: 'Total Approved Customers', value: '12,458', percent: '100% Approved', tone: 'blue' },
-      { title: 'Bronze', value: '3,245', percent: '26.0% of total', tone: 'bronze' },
-      { title: 'Silver', value: '4,312', percent: '34.6% of total', tone: 'silver' },
-      { title: 'Gold', value: '3,568', percent: '28.6% of total', tone: 'gold' },
-      { title: 'Diamond', value: '1,333', percent: '10.7% of total', tone: 'diamond' },
+      { title: 'Total Approved Customers', value: '0', percent: '0% Approved', tone: 'blue' },
+      { title: 'Bronze', value: '0', percent: '0.0% of total', tone: 'bronze' },
+      { title: 'Silver', value: '0', percent: '0.0% of total', tone: 'silver' },
+      { title: 'Gold', value: '0', percent: '0.0% of total', tone: 'gold' },
+      { title: 'Diamond', value: '0', percent: '0.0% of total', tone: 'diamond' },
     ],
     customers: [
       ['Ava Johnson', '+1 (919) 555-0147', 'Gold', '$12,450.00', '28', 'May 26, 2026'],

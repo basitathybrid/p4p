@@ -6,7 +6,7 @@ require('dotenv').config();
 const db = require('./db');
 const { startOtpVerification, checkOtpVerification, sendReviewDecisionSms } = require('./services/twilioService');
 const { sendTemporaryPasswordEmail } = require('./services/emailService');
-const { signCustomerToken, signSupervisorToken, requireCustomerAuth, requireSupervisorAuth, requireAuth } = require('./auth');
+const { signCustomerToken, signSupervisorToken, signBasicUserToken, requireCustomerAuth, requireSupervisorAuth, requireAuth } = require('./auth');
 const {
   createSignupSession,
   verifySignupOtp,
@@ -81,6 +81,43 @@ async function loginSupervisor(identifier, password) {
   };
 }
 
+async function loginBasicUser(identifier, password) {
+  const normalizedIdentifier = String(identifier || '').trim();
+
+  if (!normalizedIdentifier || !password) {
+    return { success: false, code: 'INVALID_CREDENTIALS' };
+  }
+
+  const [rows] = await db.query(
+    `SELECT id, full_name AS name, username, email, password_hash, role
+     FROM basic_users
+     WHERE is_active = 1 AND (LOWER(username) = LOWER(?) OR LOWER(email) = LOWER(?))
+     LIMIT 1`,
+    [normalizedIdentifier, normalizedIdentifier]
+  );
+
+  if (!rows[0]) {
+    return { success: false, code: 'INVALID_CREDENTIALS' };
+  }
+
+  const passwordMatches = await bcrypt.compare(String(password), rows[0].password_hash);
+
+  if (!passwordMatches) {
+    return { success: false, code: 'INVALID_CREDENTIALS' };
+  }
+
+  return {
+    success: true,
+    user: {
+      id: rows[0].id,
+      name: rows[0].name,
+      email: rows[0].email,
+      username: rows[0].username,
+      role: rows[0].role || 'basic',
+    },
+  };
+}
+
 app.get('/api/health', async (req, res) => {
   try {
     await db.query('SELECT 1');
@@ -98,6 +135,10 @@ app.post('/api/signup/request', async (req, res) => {
 
     if (!payload.name || !phone || !payload.email || !String(payload.playerMobileId || '').trim()) {
       return res.status(400).json({ success: false, code: 'VALIDATION_ERROR', message: 'Name, phone, email, and player mobile ID are required.' });
+    }
+
+    if (!/^[A-Za-z][A-Za-z '.-]*$/.test(String(payload.name).trim())) {
+      return res.status(400).json({ success: false, code: 'INVALID_NAME', message: 'Name must contain letters only.' });
     }
 
     if (playerId && !/^\d+$/.test(playerId)) {
@@ -139,6 +180,10 @@ app.post('/api/signup/request', async (req, res) => {
       sessionId: created.sessionId,
     });
   } catch (error) {
+    if (error.code === 'INVALID_PHONE') {
+      return res.status(400).json({ success: false, code: 'INVALID_PHONE', message: error.message });
+    }
+
     console.error('signup request failed:', error);
     return res.status(500).json({ success: false, code: 'SERVER_ERROR', message: 'Unable to create signup request.', error: error.message });
   }
@@ -184,7 +229,7 @@ app.post('/api/signup/verify', async (req, res) => {
 
 app.post('/api/auth/login', async (req, res) => {
   try {
-    const { phone, email, username, identifier, password } = req.body || {};
+    const { phone, email, username, identifier, password, portal } = req.body || {};
     const loginIdentifier = identifier || phone || username || email;
 
     const customerResult = await loginCustomer(loginIdentifier, password);
@@ -222,7 +267,26 @@ app.post('/api/auth/login', async (req, res) => {
       });
     }
 
-    return res.status(401).json({ success: false, code: 'INVALID_CREDENTIALS', message: 'Phone number or password is incorrect.' });
+    const basicUserResult = await loginBasicUser(loginIdentifier, password);
+
+    if (basicUserResult.success) {
+      const token = signBasicUserToken(basicUserResult.user);
+
+      return res.status(200).json({
+        success: true,
+        token,
+        role: 'basic',
+        user: basicUserResult.user,
+      });
+    }
+
+    return res.status(401).json({
+      success: false,
+      code: 'INVALID_CREDENTIALS',
+      message: portal === 'supervisor' || portal === 'basic'
+        ? 'Username/email or password is incorrect.'
+        : 'Phone number or password is incorrect.',
+    });
   } catch (error) {
     console.error('login failed:', error);
     return res.status(500).json({ success: false, code: 'SERVER_ERROR', message: 'Unable to log in.', error: error.message });
@@ -273,6 +337,18 @@ app.post('/api/auth/change-password', requireAuth(), async (req, res) => {
 
       const passwordHash = await bcrypt.hash(String(newPassword), 10);
       await db.query('UPDATE supervisors SET password_hash = ? WHERE id = ?', [passwordHash, req.user.id]);
+      return res.status(200).json({ success: true, message: 'Password updated successfully.' });
+    }
+
+    if (req.user.role === 'basic') {
+      const [rows] = await db.query('SELECT password_hash FROM basic_users WHERE id = ?', [req.user.id]);
+
+      if (!rows[0] || !(await bcrypt.compare(String(oldPassword), rows[0].password_hash))) {
+        return res.status(401).json({ success: false, code: 'INVALID_CREDENTIALS', message: 'Current password is incorrect.' });
+      }
+
+      const passwordHash = await bcrypt.hash(String(newPassword), 10);
+      await db.query('UPDATE basic_users SET password_hash = ? WHERE id = ?', [passwordHash, req.user.id]);
       return res.status(200).json({ success: true, message: 'Password updated successfully.' });
     }
 

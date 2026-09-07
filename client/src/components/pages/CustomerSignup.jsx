@@ -27,6 +27,9 @@ const REQUIRED_SIGNUP_FIELDS = ['name', 'phone', 'email', 'playerMobileId', 'pas
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
+// Letters, spaces, apostrophes, hyphens and periods only (no digits or symbols)
+const NAME_PATTERN = /^[A-Za-z][A-Za-z '.-]*$/
+
 // Accepts a 10-digit US number, optionally prefixed with 1 or +1
 const US_PHONE_PATTERN = /^(\+?1)?\d{10}$/
 
@@ -41,6 +44,10 @@ const validateSignupForm = (form) => {
       errors[field] = 'This field is required.'
     }
   })
+
+  if (!errors.name && !NAME_PATTERN.test(form.name.trim())) {
+    errors.name = 'Enter a valid name using letters only.'
+  }
 
   if (!errors.phone && !US_PHONE_PATTERN.test(form.phone.trim())) {
     errors.phone = 'Enter a valid US phone number.'

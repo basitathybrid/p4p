@@ -39,9 +39,19 @@ async function startOtpVerification(phone) {
     throw new Error('Twilio Verify is not configured. Set TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, and TWILIO_VERIFY_SERVICE_SID.');
   }
 
-  const verification = await service.verifications.create({ to: toNumber, channel: 'sms' });
+  try {
+    const verification = await service.verifications.create({ to: toNumber, channel: 'sms' });
+    return { ok: true, mode: 'twilio-verify', sid: verification.sid, status: verification.status, to: toNumber };
+  } catch (error) {
+    // Twilio rejects numbers that aren't valid, real phone numbers (e.g. unassigned area codes)
+    if (Number(error.code) === 60200) {
+      const invalidPhoneError = new Error('Enter a valid phone number that can receive SMS.');
+      invalidPhoneError.code = 'INVALID_PHONE';
+      throw invalidPhoneError;
+    }
 
-  return { ok: true, mode: 'twilio-verify', sid: verification.sid, status: verification.status, to: toNumber };
+    throw error;
+  }
 }
 
 async function checkOtpVerification(phone, otpCode) {

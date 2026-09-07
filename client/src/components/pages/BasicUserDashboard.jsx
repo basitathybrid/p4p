@@ -20,7 +20,7 @@ function BasicUserTable() {
           </div>
         </div>
 
-        <div className="data-table-header">Showing 1 to 10 of 12,458 approved customers</div>
+        <div className="data-table-header">Showing 0 to 0 of 0 approved customers</div>
         <div className="table-scroll">
           <table className="data-table">
             <thead>

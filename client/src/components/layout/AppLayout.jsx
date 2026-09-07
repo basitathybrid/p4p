@@ -57,7 +57,9 @@ export function AppLayout({ route, children }) {
     localStorage.removeItem('p4p_supervisor_name')
     localStorage.removeItem('p4p_customer_token')
     localStorage.removeItem('p4p_customer_phone')
-    navigate(route === 'supervisor' ? '/supervisorlogin' : '/login')
+    localStorage.removeItem('p4p_basic_token')
+    localStorage.removeItem('p4p_basic_username')
+    navigate(route === 'supervisor' ? '/supervisorlogin' : route === 'basic' ? '/basicuserlogin' : '/login')
   }
 
   const openChangePassword = () => {
@@ -110,7 +112,9 @@ export function AppLayout({ route, children }) {
 
     const token = route === 'supervisor'
       ? localStorage.getItem('p4p_supervisor_token')
-      : localStorage.getItem('p4p_customer_token')
+      : route === 'basic'
+        ? localStorage.getItem('p4p_basic_token')
+        : localStorage.getItem('p4p_customer_token')
 
     try {
       const response = await fetch(config.REST_API.Auth.ChangePassword, {
