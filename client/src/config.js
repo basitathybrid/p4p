@@ -1,10 +1,6 @@
-const ROOT_URL = 'http://localhost:5000/api/';
-// const ROOT_URL = 'http://devapi.play4perks.com/api/';
-// const ROOT_URL = 'http://api.play4perks.com/api/';
-
-// const ROOT_URL = import.meta.env.VITE_API_URL
-//   ? (import.meta.env.VITE_API_URL.endsWith('/') ? import.meta.env.VITE_API_URL : `${import.meta.env.VITE_API_URL}/`)
-//   : 'http://localhost:5000/api/';
+const ROOT_URL = window.__APP_CONFIG__?.API_URL
+  ? (window.__APP_CONFIG__.API_URL.endsWith('/') ? window.__APP_CONFIG__.API_URL : `${window.__APP_CONFIG__.API_URL}/`)
+  : 'http://localhost:5000/api/';
 
 const config = {
   REST_API: {
