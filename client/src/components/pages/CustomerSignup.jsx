@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import config from '../../config'
+import play4PerksLogo from '../../assets/play4perks-logo.png'
+import { Icon } from '../ui/Icon'
 
 const emptyForm = {
   name: '',
@@ -78,6 +80,7 @@ export function CustomerSignupPage() {
   const [form, setForm] = useState(emptyForm)
   const [fieldErrors, setFieldErrors] = useState({})
   const [otpCode, setOtpCode] = useState('')
+  const [showPasswords, setShowPasswords] = useState({ password: false, confirmPassword: false })
   const [otpError, setOtpError] = useState('')
   const [step, setStep] = useState('form')
   const [status, setStatus] = useState({ type: 'idle', message: '' })
@@ -214,12 +217,21 @@ export function CustomerSignupPage() {
   }
 
   return (
-    <div className="signup-shell">
-      <div className="signup-card">
-        <div className="signup-header">
+    <main className="customer-signup-shell">
+      <div className="signup-light signup-light-one" />
+      <div className="signup-light signup-light-two" />
+      <div className="login-gift" aria-hidden="true"><span className="gift-bow" /><span className="gift-lid" /></div>
+      <div className="signup-controller" aria-hidden="true" />
+      <div className="customer-signup-content">
+        <img className="customer-signup-logo" src={play4PerksLogo} alt="Play4Perks" />
+        <p className="signup-tagline">PLAY MORE <span>EARN MORE</span></p>
+        <p className="login-reward-copy">Real Players<br />Real Rewards</p>
+        <section className="customer-signup-card">
+        <div className="signup-header customer-signup-header">
           <div>
             <p className="eyebrow">Customer Signup</p>
-            <h1>Rewards Application</h1>
+            <h1>Rewards <span>Application</span></h1>
+            <p className="customer-signup-intro">Create your account and start earning amazing rewards!</p>
           </div>
           <span className="phase-tag">2FA Required</span>
         </div>
@@ -233,12 +245,12 @@ export function CustomerSignupPage() {
             <div className="field-row two-up">
               <label>
                 Full Name
-                <input name="name" value={form.name} onChange={handleChange} placeholder="Enter full name" className={fieldErrors.name ? 'input-error' : ''} />
+                <span className="signup-input-wrap"><Icon name="user" /><input name="name" value={form.name} onChange={handleChange} placeholder="Enter full name" className={fieldErrors.name ? 'input-error' : ''} /></span>
                 {fieldErrors.name && <span className="field-error-msg">{fieldErrors.name}</span>}
               </label>
               <label>
                 Phone Number
-                <input name="phone" value={form.phone} onChange={handleChange} placeholder="5551234567" className={fieldErrors.phone ? 'input-error' : ''} />
+                <span className="signup-input-wrap"><Icon name="phone" /><input name="phone" value={form.phone} onChange={handleChange} placeholder="5551234567" className={fieldErrors.phone ? 'input-error' : ''} /></span>
                 {fieldErrors.phone && <span className="field-error-msg">{fieldErrors.phone}</span>}
               </label>
             </div>
@@ -246,12 +258,12 @@ export function CustomerSignupPage() {
             <div className="field-row two-up">
               <label>
                 Email Address
-                <input type="email" name="email" value={form.email} onChange={handleChange} placeholder="name@example.com" className={fieldErrors.email ? 'input-error' : ''} />
+                <span className="signup-input-wrap"><Icon name="mail" /><input type="email" name="email" value={form.email} onChange={handleChange} placeholder="name@example.com" className={fieldErrors.email ? 'input-error' : ''} /></span>
                 {fieldErrors.email && <span className="field-error-msg">{fieldErrors.email}</span>}
               </label>
               <label>
                 Player Mobile ID
-                <input name="playerMobileId" value={form.playerMobileId} onChange={handleChange} placeholder="e.g. M-665-778-889" className={fieldErrors.playerMobileId ? 'input-error' : ''} />
+                <span className="signup-input-wrap"><Icon name="gamepad" /><input name="playerMobileId" value={form.playerMobileId} onChange={handleChange} placeholder="e.g. M-665-778-889" className={fieldErrors.playerMobileId ? 'input-error' : ''} /></span>
                 {fieldErrors.playerMobileId && <span className="field-error-msg">{fieldErrors.playerMobileId}</span>}
               </label>
             </div>
@@ -259,12 +271,12 @@ export function CustomerSignupPage() {
             <div className="field-row two-up">
               <label>
                 Password
-                <input type="password" name="password" value={form.password} onChange={handleChange} placeholder="At least 8 characters" className={fieldErrors.password ? 'input-error' : ''} />
+                <span className="signup-input-wrap"><Icon name="lock" /><input type={showPasswords.password ? 'text' : 'password'} name="password" value={form.password} onChange={handleChange} placeholder="At least 8 characters" className={fieldErrors.password ? 'input-error' : ''} /><button type="button" className="password-toggle" aria-label={showPasswords.password ? 'Hide password' : 'Show password'} onClick={() => setShowPasswords((current) => ({ ...current, password: !current.password }))}><Icon name={showPasswords.password ? 'eye' : 'eyeOff'} /></button></span>
                 {fieldErrors.password && <span className="field-error-msg">{fieldErrors.password}</span>}
               </label>
               <label>
                 Confirm Password
-                <input type="password" name="confirmPassword" value={form.confirmPassword} onChange={handleChange} placeholder="Re-enter password" className={fieldErrors.confirmPassword ? 'input-error' : ''} />
+                <span className="signup-input-wrap"><Icon name="lock" /><input type={showPasswords.confirmPassword ? 'text' : 'password'} name="confirmPassword" value={form.confirmPassword} onChange={handleChange} placeholder="Re-enter password" className={fieldErrors.confirmPassword ? 'input-error' : ''} /><button type="button" className="password-toggle" aria-label={showPasswords.confirmPassword ? 'Hide password' : 'Show password'} onClick={() => setShowPasswords((current) => ({ ...current, confirmPassword: !current.confirmPassword }))}><Icon name={showPasswords.confirmPassword ? 'eye' : 'eyeOff'} /></button></span>
                 {fieldErrors.confirmPassword && <span className="field-error-msg">{fieldErrors.confirmPassword}</span>}
               </label>
             </div>
@@ -272,27 +284,30 @@ export function CustomerSignupPage() {
             <div className="field-row two-up">
               <label>
                 Facebook Link
-                <input name="facebook" value={form.facebook} onChange={handleChange} placeholder="Optional" />
+                <span className="signup-input-wrap"><Icon name="facebook" /><input name="facebook" value={form.facebook} onChange={handleChange} placeholder="Optional" /></span>
               </label>
               <label>
                 Instagram Handle
-                <input name="instagram" value={form.instagram} onChange={handleChange} placeholder="Optional" />
+                <span className="signup-input-wrap"><Icon name="instagram" /><input name="instagram" value={form.instagram} onChange={handleChange} placeholder="Optional" /></span>
               </label>
             </div>
 
             <div className="field-row two-up">
               <label>
                 Telegram ID
-                <input name="telegram" value={form.telegram} onChange={handleChange} placeholder="Optional" />
+                <span className="signup-input-wrap"><Icon name="telegram" /><input name="telegram" value={form.telegram} onChange={handleChange} placeholder="Optional" /></span>
               </label>
               <div />
             </div>
 
             <div className="signup-actions">
               <button type="submit" className="primary-btn" disabled={loading}>
-                {loading ? 'Sending OTP...' : 'Send SMS OTP'}
+                <Icon name="message" />
+                <span>{loading ? 'Sending OTP...' : 'Send SMS OTP'}</span>
+                <Icon name="arrowRight" />
               </button>
             </div>
+            <div className="login-divider"><span>OR</span></div>
             <p className="otp-label">
               Already have an account? <Link to="/login">Go to Login</Link>
             </p>
@@ -341,8 +356,15 @@ export function CustomerSignupPage() {
             <Link to="/login" className="secondary-btn">Go to Login</Link>
           </div>
         )}
+        </section>
+        <div className="signup-feature-strip" aria-hidden="true">
+          <div><span className="feature-mark">P</span><strong>PLAY</strong><small>Your Favorite Games</small></div>
+          <div><span className="feature-mark">E</span><strong>EARN</strong><small>Exclusive Rewards</small></div>
+          <div><span className="feature-mark">R</span><strong>REDEEM</strong><small>Real Perks</small></div>
+        </div>
+        <p className="login-bottom-copy">More<br />Than Just Play</p>
       </div>
-    </div>
+    </main>
   )
 }
 

@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import config from '../../config'
+import { Icon } from '../ui/Icon'
+import play4PerksLogo from '../../assets/play4perks-logo.png'
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -20,6 +22,7 @@ export function CustomerLoginPage() {
   const [resetEmail, setResetEmail] = useState('')
   const [resetError, setResetError] = useState('')
   const [showPasswordReset, setShowPasswordReset] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
   const [status, setStatus] = useState({ type: 'idle', message: '' })
   const [loading, setLoading] = useState(false)
 
@@ -125,12 +128,23 @@ export function CustomerLoginPage() {
   }
 
   return (
-    <div className="signup-shell">
-      <div className="signup-card">
-        <div className="signup-header">
+    <main className="customer-login-shell">
+      <div className="login-glow login-glow-one" />
+      <div className="login-glow login-glow-two" />
+      <div className="login-lion-shadow" aria-hidden="true"><img src={play4PerksLogo} alt="" /></div>
+      <div className="login-crown" aria-hidden="true">♕</div>
+      <div className="login-gift" aria-hidden="true"><span className="gift-bow" /><span className="gift-lid" /></div>
+      <div className="login-controller" aria-hidden="true" />
+      <div className="customer-login-content">
+        <img className="customer-login-logo" src={play4PerksLogo} alt="Play4Perks" />
+        <p className="login-tagline">PLAY MORE <span>EARN MORE</span></p>
+        <p className="login-reward-copy">Real Players<br />Real Rewards</p>
+        <section className="customer-login-card">
+        <div className="signup-header customer-login-header">
           <div>
             <p className="eyebrow">P4P Account</p>
-            <h1>Customer Login</h1>
+            <h1>Customer <span>Login</span></h1>
+            <p className="customer-login-intro">Welcome back! Log in to access your account and keep earning rewards.</p>
           </div>
         </div>
 
@@ -139,10 +153,10 @@ export function CustomerLoginPage() {
         )}
 
         {showPasswordReset ? (
-          <form onSubmit={handlePasswordReset} className="signup-form" noValidate>
+          <form onSubmit={handlePasswordReset} className="signup-form customer-login-form" noValidate>
             <label>
               Account Email Address
-              <input type="email" value={resetEmail} onChange={(event) => { setResetEmail(event.target.value); if (resetError) setResetError('') }} placeholder="name@example.com" className={resetError ? 'input-error' : ''} />
+              <span className="login-input-wrap"><Icon name="mail" /><input type="email" value={resetEmail} onChange={(event) => { setResetEmail(event.target.value); if (resetError) setResetError('') }} placeholder="name@example.com" className={resetError ? 'input-error' : ''} /></span>
               {resetError && <span className="field-error-msg">{resetError}</span>}
             </label>
             <div className="signup-actions">
@@ -151,34 +165,39 @@ export function CustomerLoginPage() {
             </div>
           </form>
         ) : (
-          <form onSubmit={handleSubmit} className="signup-form" noValidate>
-            <div className="field-row two-up">
+          <form onSubmit={handleSubmit} className="signup-form customer-login-form" noValidate>
+            <div className="login-field">
               <label>
                 Phone Number
-                <input name="identifier" value={form.identifier} onChange={handleChange} placeholder="5551234567" className={fieldErrors.identifier ? 'input-error' : ''} />
+                <span className="login-input-wrap"><Icon name="phone" /><input name="identifier" value={form.identifier} onChange={handleChange} placeholder="5551234567" className={fieldErrors.identifier ? 'input-error' : ''} /></span>
                 {fieldErrors.identifier && <span className="field-error-msg">{fieldErrors.identifier}</span>}
               </label>
+            </div>
+            <div className="login-field">
               <label>
                 Password
-                <input type="password" name="password" value={form.password} onChange={handleChange} placeholder="Your password" className={fieldErrors.password ? 'input-error' : ''} />
+                <span className="login-input-wrap"><Icon name="lock" /><input type={showPassword ? 'text' : 'password'} name="password" value={form.password} onChange={handleChange} placeholder="Your password" className={fieldErrors.password ? 'input-error' : ''} /><button type="button" className="password-toggle" aria-label={showPassword ? 'Hide password' : 'Show password'} onClick={() => setShowPassword((visible) => !visible)}><Icon name={showPassword ? 'eye' : 'eyeOff'} /></button></span>
                 {fieldErrors.password && <span className="field-error-msg">{fieldErrors.password}</span>}
               </label>
             </div>
 
             <div className="signup-actions">
               <button type="submit" className="primary-btn" disabled={loading}>
-                {loading ? 'Logging in...' : 'Log In'}
+                <span>{loading ? 'Logging in...' : 'Log In'}</span><Icon name="arrowRight" />
               </button>
               <button type="button" className="link-btn" onClick={() => { setShowPasswordReset(true); setStatus({ type: 'idle', message: '' }) }}>Forgot password?</button>
             </div>
           </form>
         )}
 
+        <div className="login-divider"><span>OR</span></div>
         <p className="otp-label login-signup-prompt">
-          New here? <Link to="/signup">Create an account</Link>
+          New here? <Link to="/signup">Create an account <Icon name="arrowRight" /></Link>
         </p>
+        </section>
+        <p className="login-bottom-copy">More<br />Than Just Play</p>
       </div>
-    </div>
+    </main>
   )
 }
 
