@@ -7,6 +7,7 @@ const db = require('./db');
 const { startOtpVerification, checkOtpVerification, sendReviewDecisionSms } = require('./services/twilioService');
 const { sendTemporaryPasswordEmail } = require('./services/emailService');
 const { signCustomerToken, signSupervisorToken, signBasicUserToken, requireCustomerAuth, requireSupervisorAuth, requireAuth } = require('./auth');
+const { importTransactions } = require('./transactionService');
 const {
   createSignupSession,
   verifySignupOtp,
@@ -26,6 +27,7 @@ const PORT = process.env.PORT || 5000;
 
 app.use(cors());
 app.use(express.json());
+app.use(express.text({ type: ['text/csv', 'application/csv'] }));
 
 function isSupervisorUser(req) {
   const role = String(req.header('x-user-role') || '').trim().toLowerCase();
@@ -470,6 +472,22 @@ app.post('/api/review/applications/:phone/decision', requireSupervisorAuth, asyn
   } catch (error) {
     console.error('application decision failed:', error);
     return res.status(500).json({ success: false, code: 'SERVER_ERROR', message: 'Unable to complete review decision.', error: error.message });
+  }
+});
+
+app.post('/api/uploads/transactions', requireSupervisorAuth, async (req, res) => {
+  try {
+    const csv = typeof req.body === 'string' ? req.body : req.body?.csv;
+    const result = await importTransactions(csv);
+
+    if (!result.success) {
+      return res.status(400).json(result);
+    }
+
+    return res.status(200).json({ success: true, message: 'Transaction upload processed.', ...result });
+  } catch (error) {
+    console.error('transaction upload failed:', error);
+    return res.status(500).json({ success: false, code: 'SERVER_ERROR', message: 'Unable to process transaction upload.' });
   }
 });
 

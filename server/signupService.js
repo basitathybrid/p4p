@@ -329,6 +329,8 @@ async function resetSignupState() {
   }
 
   await db.query('DELETE FROM signup_sessions');
+  await db.query('DELETE FROM customer_usage');
+  await db.query('DELETE FROM transactions');
   await db.query('DELETE FROM customers');
   await db.query('DELETE FROM applications');
 }

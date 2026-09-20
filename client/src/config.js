@@ -21,6 +21,9 @@ const config = {
       GetApplicationByPhone: (phone) => `${ROOT_URL}review/applications/${phone}`,
       SubmitDecision: (phone) => `${ROOT_URL}review/applications/${phone}/decision`,
     },
+    Uploads: {
+      Transactions: `${ROOT_URL}uploads/transactions`,
+    },
   },
 }
 

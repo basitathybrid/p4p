@@ -82,6 +82,9 @@ function SupervisorTable({ onStatusCountsChange }) {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [exporting, setExporting] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [uploadStats, setUploadStats] = useState(roles.supervisor.upload)
+  const [uploadStatus, setUploadStatus] = useState({ type: 'idle', message: '', details: [] })
   const [statusCounts, setStatusCounts] = useState({ submitted: 0, pendingReview: 0, decided: 0, active: 0 })
 
   const selectedApplication = useMemo(
@@ -269,6 +272,57 @@ function SupervisorTable({ onStatusCountsChange }) {
     }
   }
 
+  const handleTransactionUpload = async (event) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+
+    setUploading(true)
+    setUploadStatus({ type: 'idle', message: '', details: [] })
+
+    try {
+      const isExcel = /\.(xlsx|xls)$/i.test(file.name)
+      const workbook = isExcel ? XLSX.read(await file.arrayBuffer(), { type: 'array' }) : null
+      const csv = isExcel
+        ? XLSX.utils.sheet_to_csv(workbook.Sheets[workbook.SheetNames[0]])
+        : await file.text()
+      const response = await fetch(config.REST_API.Uploads.Transactions, {
+        method: 'POST',
+        headers: { ...SUPERVISOR_HEADERS(), 'Content-Type': 'text/csv' },
+        body: csv,
+      })
+      const data = await response.json()
+
+      if (!response.ok) {
+        setUploadStatus({
+          type: 'error',
+          message: data.message || 'Unable to process transaction upload.',
+          details: data.code === 'INVALID_HEADERS'
+            ? [`Required columns: ${data.expectedHeaders.join(', ')}.`, `Columns found: ${data.receivedHeaders.length ? data.receivedHeaders.join(', ') : 'none'}.`]
+            : [],
+        })
+        return
+      }
+
+      setUploadStats({
+        fileName: file.name,
+        uploadedAt: new Date().toLocaleString(),
+        rows: data.totals.imported,
+        skipped: data.totals.duplicates,
+        unmatched: data.totals.unmatched,
+      })
+      setUploadStatus({
+        type: 'success',
+        message: `Imported ${data.totals.imported} transaction(s).`,
+        details: [`${data.totals.duplicates} duplicate(s) skipped, ${data.totals.unmatched} unmatched, ${data.totals.invalid} invalid.`],
+      })
+    } catch (error) {
+      setUploadStatus({ type: 'error', message: error.message || 'Unable to process transaction upload.', details: [] })
+    } finally {
+      setUploading(false)
+    }
+  }
+
   const workflow = [
     { label: 'Submitted', count: String(statusCounts.submitted), active: statusCounts.submitted > 0 },
     { label: 'Pending Supervisor Review', count: String(statusCounts.pendingReview), active: statusCounts.pendingReview > 0 },
@@ -397,9 +451,16 @@ function SupervisorTable({ onStatusCountsChange }) {
           </div>
           <div className="upload-zone">
             <div className="upload-illustration"><Icon name="upload" /></div>
-            <div>Drag and drop this CSV file here</div>
-            <button>Choose File</button>
+            <div>Drag and drop a CSV or Excel file here</div>
+            <label className="approve-btn" htmlFor="transaction-upload">{uploading ? 'Uploading...' : 'Choose File'}</label>
+            <input id="transaction-upload" type="file" accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" onChange={handleTransactionUpload} hidden disabled={uploading} />
           </div>
+          {uploadStatus.message && (
+            <div className={`status-banner ${uploadStatus.type}`}>
+              <strong>{uploadStatus.message}</strong>
+              {uploadStatus.details.map((detail) => <div key={detail}>{detail}</div>)}
+            </div>
+          )}
           <ul className="upload-list">
             <li>Source: P3M CSV file containing last 24 hours of transactions.</li>
             <li>Match on Phone Number only.</li>
@@ -407,11 +468,11 @@ function SupervisorTable({ onStatusCountsChange }) {
             <li>Only transactions for approved profiles will be processed.</li>
           </ul>
           <div className="upload-stats">
-            <div><span>File Name</span><strong>{roles.supervisor.upload.fileName}</strong></div>
-            <div><span>Upload Date</span><strong>{roles.supervisor.upload.uploadedAt}</strong></div>
-            <div><span>New Transactions Added</span><strong>{roles.supervisor.upload.rows}</strong></div>
-            <div><span>Duplicates Skipped</span><strong>{roles.supervisor.upload.skipped}</strong></div>
-            <div><span>Unmatched Phone Numbers</span><strong>{roles.supervisor.upload.unmatched}</strong></div>
+            <div><span>File Name</span><strong>{uploadStats.fileName}</strong></div>
+            <div><span>Upload Date</span><strong>{uploadStats.uploadedAt}</strong></div>
+            <div><span>New Transactions Added</span><strong>{uploadStats.rows}</strong></div>
+            <div><span>Duplicates Skipped</span><strong>{uploadStats.skipped}</strong></div>
+            <div><span>Unmatched Phone Numbers</span><strong>{uploadStats.unmatched}</strong></div>
           </div>
           <button className="ghost-link block-link">View upload history</button>
         </div>

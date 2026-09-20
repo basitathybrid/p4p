@@ -69,6 +69,32 @@ CREATE TABLE IF NOT EXISTS customers (
   CONSTRAINT fk_customers_application FOREIGN KEY (phone) REFERENCES applications(phone)
 );
 
+CREATE TABLE IF NOT EXISTS transactions (
+  transaction_id       VARCHAR(255) PRIMARY KEY,
+  phone                VARCHAR(20) NOT NULL,
+  transaction_type     ENUM('buy', 'send', 'receive', 'sell') NOT NULL,
+  transaction_datetime DATETIME NOT NULL,
+  transaction_amount   DECIMAL(18, 2) NOT NULL,
+  transaction_status   VARCHAR(50) NOT NULL,
+  imported_at           DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_transactions_phone_date (phone, transaction_datetime),
+  CONSTRAINT fk_transactions_application FOREIGN KEY (phone) REFERENCES applications(phone)
+);
+
+CREATE TABLE IF NOT EXISTS customer_usage (
+  phone                       VARCHAR(20) PRIMARY KEY,
+  lifetime_transaction_volume DECIMAL(18, 2) NOT NULL DEFAULT 0,
+  transaction_count           BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  last_activity_at            DATETIME NULL,
+  buy_total                   DECIMAL(18, 2) NOT NULL DEFAULT 0,
+  send_total                  DECIMAL(18, 2) NOT NULL DEFAULT 0,
+  receive_total               DECIMAL(18, 2) NOT NULL DEFAULT 0,
+  sell_total                  DECIMAL(18, 2) NOT NULL DEFAULT 0,
+  reward_tier                 ENUM('Bronze', 'Silver', 'Gold', 'Diamond') NOT NULL DEFAULT 'Bronze',
+  updated_at                  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  CONSTRAINT fk_customer_usage_application FOREIGN KEY (phone) REFERENCES applications(phone)
+);
+
 CREATE TABLE IF NOT EXISTS supervisors (
   id            BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
   full_name     VARCHAR(255) NOT NULL,
