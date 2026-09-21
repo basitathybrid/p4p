@@ -1,12 +1,7 @@
 const db = require('./db');
+const { DEFAULT_THRESHOLDS, getTierThresholds, tierForVolume: calculateTier } = require('./tierService');
 
 const TRANSACTION_TYPES = new Set(['buy', 'send', 'receive', 'sell']);
-const TIER_THRESHOLDS = [
-  { name: 'Diamond', minimum: 15000 },
-  { name: 'Gold', minimum: 10000 },
-  { name: 'Silver', minimum: 5000 },
-  { name: 'Bronze', minimum: 0 },
-];
 const REQUIRED_HEADERS = [
   ['no', 'NO'],
   ['mobileno', 'MOBILE_NO'],
@@ -71,7 +66,7 @@ function parseTransactionDate(value) {
 }
 
 function tierForVolume(volume) {
-  return TIER_THRESHOLDS.find((tier) => volume >= tier.minimum).name;
+  return calculateTier(volume, DEFAULT_THRESHOLDS);
 }
 
 function mapRow(headers, values, rowNumber) {
@@ -127,6 +122,7 @@ async function importTransactions(csv) {
 
   try {
     await conn.beginTransaction();
+    const thresholds = await getTierThresholds(conn);
     const [approvedRows] = await conn.query("SELECT phone FROM applications WHERE status = 'approved'");
     const approvedPhones = new Set(approvedRows.map((row) => row.phone));
 
@@ -177,17 +173,16 @@ async function importTransactions(csv) {
         [phone]
       );
 
-      await conn.query(
-        `UPDATE customer_usage
-         SET reward_tier = CASE
-           WHEN lifetime_transaction_volume >= 15000 THEN 'Diamond'
-           WHEN lifetime_transaction_volume >= 10000 THEN 'Gold'
-           WHEN lifetime_transaction_volume >= 5000 THEN 'Silver'
-           ELSE 'Bronze'
-         END
-         WHERE phone = ?`,
+      const [usageRows] = await conn.query(
+        'SELECT lifetime_transaction_volume, tier_override FROM customer_usage WHERE phone = ?',
         [phone]
       );
+      if (usageRows[0] && !usageRows[0].tier_override) {
+        await conn.query(
+          'UPDATE customer_usage SET reward_tier = ? WHERE phone = ?',
+          [calculateTier(usageRows[0].lifetime_transaction_volume, thresholds), phone]
+        );
+      }
     }
 
     await conn.commit();

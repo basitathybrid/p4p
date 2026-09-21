@@ -6,6 +6,7 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js",
+    "db:migrate": "node database/migrate.js",
     "test": "node --test signupFlow.test.js"
   },
   "keywords": [],

@@ -4,10 +4,12 @@ const bcrypt = require('bcryptjs');
 require('dotenv').config();
 
 const db = require('./db');
+const { migrateDatabase } = require('./database/migrate');
 const { startOtpVerification, checkOtpVerification, sendReviewDecisionSms } = require('./services/twilioService');
 const { sendTemporaryPasswordEmail } = require('./services/emailService');
 const { signCustomerToken, signSupervisorToken, signBasicUserToken, requireCustomerAuth, requireSupervisorAuth, requireAuth } = require('./auth');
 const { importTransactions } = require('./transactionService');
+const { TIER_RANK, getTierThresholds, tierForVolume, validateThresholds } = require('./tierService');
 const {
   createSignupSession,
   verifySignupOtp,
@@ -376,8 +378,30 @@ app.get('/api/customer/session', requireCustomerAuth, async (req, res) => {
       return res.status(404).json({ success: false, code: 'NOT_FOUND', message: 'Application not found.' });
     }
 
+    const [usageRows] = await db.query(
+      `SELECT lifetime_transaction_volume, transaction_count, last_activity_at, reward_tier
+       FROM customer_usage WHERE phone = ?`,
+      [req.customerPhone]
+    );
+    const [transactionRows] = await db.query(
+      `SELECT transaction_datetime, transaction_type, transaction_amount, transaction_status, transaction_id
+       FROM transactions WHERE phone = ? ORDER BY transaction_datetime DESC LIMIT 10`,
+      [req.customerPhone]
+    );
+
     // Profile details are view-only for the customer; edits are made only by PayFe Operations via the review endpoints.
-    return res.status(200).json({ success: true, status: application.status, application });
+    return res.status(200).json({
+      success: true,
+      status: application.status,
+      application,
+      usage: usageRows[0] || {
+        lifetime_transaction_volume: 0,
+        transaction_count: 0,
+        last_activity_at: null,
+        reward_tier: 'Bronze',
+      },
+      transactions: transactionRows,
+    });
   } catch (error) {
     console.error('load customer session failed:', error);
     return res.status(500).json({ success: false, code: 'SERVER_ERROR', message: 'Unable to load account status.', error: error.message });
@@ -392,6 +416,82 @@ app.get('/api/review/applications', requireSupervisorAuth, async (req, res) => {
   } catch (error) {
     console.error('list applications failed:', error);
     return res.status(500).json({ success: false, code: 'SERVER_ERROR', message: 'Unable to load applications.', error: error.message });
+  }
+});
+
+app.get('/api/tier-thresholds', requireAuth(), async (req, res) => {
+  if (!['supervisor', 'basic'].includes(req.user.role)) {
+    return res.status(403).json({ success: false, code: 'FORBIDDEN', message: 'Access denied.' });
+  }
+
+  try {
+    const conn = await db.getConnection();
+    try {
+      return res.status(200).json({ success: true, thresholds: await getTierThresholds(conn) });
+    } finally {
+      conn.release();
+    }
+  } catch (error) {
+    console.error('load tier thresholds failed:', error);
+    return res.status(500).json({ success: false, code: 'SERVER_ERROR', message: 'Unable to load tier thresholds.' });
+  }
+});
+
+app.put('/api/tier-thresholds', requireAuth(), async (req, res) => {
+  if (!['supervisor', 'basic'].includes(req.user.role)) {
+    return res.status(403).json({ success: false, code: 'FORBIDDEN', message: 'Access denied.' });
+  }
+
+  const thresholds = (req.body?.thresholds || []).map((tier) => ({ name: tier.name, minimum: Number(tier.minimum) }));
+  if (!validateThresholds(thresholds) || thresholds.some((tier) => !Number.isFinite(tier.minimum) || tier.minimum < 0)) {
+    return res.status(400).json({ success: false, code: 'INVALID_THRESHOLDS', message: 'Tier thresholds must contain Bronze, Silver, Gold and Diamond in increasing order.' });
+  }
+
+  const conn = await db.getConnection();
+  try {
+    await conn.beginTransaction();
+    for (const tier of thresholds) {
+      await conn.query('UPDATE tier_thresholds SET minimum_volume = ? WHERE tier_name = ?', [tier.minimum, tier.name]);
+    }
+    const [usageRows] = await conn.query('SELECT phone, lifetime_transaction_volume FROM customer_usage WHERE tier_override IS NULL');
+    for (const usage of usageRows) {
+      await conn.query('UPDATE customer_usage SET reward_tier = ? WHERE phone = ?', [tierForVolume(usage.lifetime_transaction_volume, thresholds), usage.phone]);
+    }
+    await conn.commit();
+    return res.status(200).json({ success: true, thresholds });
+  } catch (error) {
+    await conn.rollback();
+    console.error('update tier thresholds failed:', error);
+    return res.status(500).json({ success: false, code: 'SERVER_ERROR', message: 'Unable to update tier thresholds.' });
+  } finally {
+    conn.release();
+  }
+});
+
+app.post('/api/review/customers/:phone/tier', requireSupervisorAuth, async (req, res) => {
+  const tier = String(req.body?.tier || '');
+  if (!Object.prototype.hasOwnProperty.call(TIER_RANK, tier)) {
+    return res.status(400).json({ success: false, code: 'INVALID_TIER', message: 'Select a valid customer tier.' });
+  }
+
+  try {
+    const conn = await db.getConnection();
+    try {
+      const [usageRows] = await conn.query('SELECT lifetime_transaction_volume, reward_tier FROM customer_usage WHERE phone = ?', [normalizePhone(req.params.phone)]);
+      if (!usageRows[0]) return res.status(404).json({ success: false, code: 'NOT_FOUND', message: 'Customer usage not found.' });
+      const thresholds = await getTierThresholds(conn);
+      const automaticTier = tierForVolume(usageRows[0].lifetime_transaction_volume, thresholds);
+      if (TIER_RANK[tier] >= TIER_RANK[automaticTier]) {
+        return res.status(400).json({ success: false, code: 'NOT_A_DOWNGRADE', message: `Customer automatically qualifies for ${automaticTier} and can only be manually downgraded.` });
+      }
+      await conn.query('UPDATE customer_usage SET reward_tier = ?, tier_override = ? WHERE phone = ?', [tier, tier, normalizePhone(req.params.phone)]);
+      return res.status(200).json({ success: true, tier });
+    } finally {
+      conn.release();
+    }
+  } catch (error) {
+    console.error('update customer tier failed:', error);
+    return res.status(500).json({ success: false, code: 'SERVER_ERROR', message: 'Unable to update customer tier.' });
   }
 });
 
@@ -500,6 +600,14 @@ app.get('/', (req, res) => {
   res.json({ message: 'P4P server is running' });
 });
 
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+async function startServer() {
+  await migrateDatabase();
+  app.listen(PORT, () => {
+    console.log(`Server running on http://localhost:${PORT}`);
+  });
+}
+
+startServer().catch((error) => {
+  console.error('Database migration failed. Server was not started.', error);
+  process.exitCode = 1;
 });

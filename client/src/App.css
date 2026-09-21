@@ -46,6 +46,33 @@ button, input, select {
   font: inherit;
 }
 
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+select:-webkit-autofill,
+textarea:-webkit-autofill {
+  -webkit-text-fill-color: inherit;
+  -webkit-box-shadow: 0 0 0 1000px transparent inset;
+  box-shadow: 0 0 0 1000px transparent inset;
+  transition: background-color 9999s ease-out 0s;
+}
+
+.customer-signup-card .signup-input-wrap input:-webkit-autofill,
+.customer-login-form .login-input-wrap input:-webkit-autofill,
+.portal-input-wrap input:-webkit-autofill {
+  -webkit-text-fill-color: #fff;
+  caret-color: #fff;
+}
+
+.signup-form input:-webkit-autofill,
+.otp-input:-webkit-autofill,
+.detail-grid input:-webkit-autofill,
+.field input:-webkit-autofill,
+.field select:-webkit-autofill {
+  -webkit-text-fill-color: var(--text);
+  caret-color: var(--text);
+}
+
 button {
   cursor: pointer;
 }
@@ -602,6 +629,13 @@ button {
   grid-template-columns: 1.8fr 1.2fr 1fr;
   gap: 18px;
   margin-bottom: 24px;
+  align-items: stretch;
+}
+
+.profile-wrap,
+.status-side,
+.tier-side {
+  min-width: 0;
 }
 
 .card-light {
@@ -629,6 +663,8 @@ button {
 
 .profile-summary-card {
   padding: 18px 22px 14px;
+  height: 100%;
+  box-sizing: border-box;
 }
 
 .card-header-row {
@@ -679,6 +715,7 @@ button {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  height: 100%;
 }
 
 .status-card {
@@ -688,6 +725,7 @@ button {
   flex-direction: column;
   align-items: center;
   gap: 12px;
+  flex: 1;
 }
 
 .status-icon {
@@ -761,6 +799,8 @@ button {
   flex-direction: column;
   align-items: center;
   text-align: center;
+  height: 100%;
+  box-sizing: border-box;
 }
 
 .shield-wrap {
@@ -846,8 +886,9 @@ button {
 
 .metric-head {
   display: flex;
-  justify-content: space-between;
+  justify-content: flex-start;
   align-items: center;
+  gap: 10px;
   color: var(--muted);
   font-size: 0.9rem;
   margin-bottom: 12px;
@@ -869,6 +910,19 @@ button {
   font-weight: 800;
   letter-spacing: -0.05em;
   margin-bottom: 6px;
+}
+
+.last-activity-value {
+  display: block;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+
+.last-activity-value small {
+  margin-left: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: normal;
 }
 
 .metric-change {
@@ -1576,6 +1630,10 @@ button {
 }
 
 .upload-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
   margin-top: 16px;
   border: 2px dashed var(--line);
   border-radius: 14px;
@@ -1594,6 +1652,16 @@ button {
   display: grid;
   place-items: center;
   margin: 0 auto 12px;
+}
+
+.upload-prompt {
+  max-width: 100%;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.upload-zone .approve-btn {
+  margin-top: 0;
 }
 
 .upload-zone button {
@@ -1680,8 +1748,32 @@ button {
 }
 
 .threshold-amount {
+  width: 88px;
+  box-sizing: border-box;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 7px 8px;
+  background: #fff;
+  text-align: right;
   font-weight: 700;
   color: var(--text);
+}
+
+.tier-override-controls {
+  display: grid;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.tier-override-controls select {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px;
+  background: #fff;
 }
 
 .stat-card {
@@ -2963,8 +3055,8 @@ button {
   .customer-signup-shell { padding: 8px 10px 30px; }
   .customer-signup-card { padding: 14px 12px 13px; }
   .customer-signup-logo { height: 145px; }
-  .signup-tagline { margin-top: -22px; margin-bottom: 10px; }
-  .customer-signup-card .field-row.two-up { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .signup-tagline { position: relative; z-index: 2; margin-top: -8px; margin-bottom: 18px; line-height: 1.2; }
+  .customer-signup-card .field-row.two-up { grid-template-columns: 1fr; gap: 8px; }
   .customer-signup-card .signup-form { gap: 8px; }
   .customer-signup-card .signup-form label { gap: 3px; font-size: 0.66rem; }
   .customer-signup-card .signup-form input { height: 36px; padding: 0 7px; font-size: 0.62rem; }

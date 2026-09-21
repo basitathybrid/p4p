@@ -25,6 +25,13 @@ const emptyDetails = {
   status: 'Pending Review',
 }
 
+const DEFAULT_THRESHOLDS = [
+  { name: 'Bronze', minimum: 0 },
+  { name: 'Silver', minimum: 5000 },
+  { name: 'Gold', minimum: 10000 },
+  { name: 'Diamond', minimum: 15000 },
+]
+
 function formatPhone(phone) {
   if (!phone) return ''
   if (phone.startsWith('+')) return phone
@@ -76,6 +83,7 @@ function buildApprovedCustomersWorkbook(rows) {
 
 function SupervisorTable({ onStatusCountsChange }) {
   const [applications, setApplications] = useState([])
+  const [approvedCustomers, setApprovedCustomers] = useState([])
   const [selectedPhone, setSelectedPhone] = useState('')
   const [form, setForm] = useState(emptyDetails)
   const [status, setStatus] = useState({ type: 'idle', message: '' })
@@ -86,6 +94,10 @@ function SupervisorTable({ onStatusCountsChange }) {
   const [uploadStats, setUploadStats] = useState(roles.supervisor.upload)
   const [uploadStatus, setUploadStatus] = useState({ type: 'idle', message: '', details: [] })
   const [statusCounts, setStatusCounts] = useState({ submitted: 0, pendingReview: 0, decided: 0, active: 0 })
+  const [thresholds, setThresholds] = useState(DEFAULT_THRESHOLDS)
+  const [savingThresholds, setSavingThresholds] = useState(false)
+  const [selectedTierCustomer, setSelectedTierCustomer] = useState('')
+  const [selectedTier, setSelectedTier] = useState('Bronze')
 
   const selectedApplication = useMemo(
     () => applications.find((item) => item.phone === selectedPhone) || null,
@@ -122,6 +134,7 @@ function SupervisorTable({ onStatusCountsChange }) {
       const pendingApplications = allApplications.filter((item) => item.status === 'pending_review')
 
       setApplications(pendingApplications)
+      setApprovedCustomers(allApplications.filter((item) => item.status === 'approved'))
       const nextStatusCounts = {
         submitted: allApplications.length,
         pendingReview: pendingApplications.length,
@@ -151,6 +164,47 @@ function SupervisorTable({ onStatusCountsChange }) {
   useEffect(() => {
     loadApplications()
   }, [])
+
+  useEffect(() => {
+    fetch(config.REST_API.Tiers.Thresholds, { headers: SUPERVISOR_HEADERS() })
+      .then((response) => response.json())
+      .then((data) => { if (data.success) setThresholds(data.thresholds) })
+      .catch(() => {})
+  }, [])
+
+  const saveThresholds = async () => {
+    setSavingThresholds(true)
+    try {
+      const response = await fetch(config.REST_API.Tiers.Thresholds, {
+        method: 'PUT',
+        headers: SUPERVISOR_HEADERS(),
+        body: JSON.stringify({ thresholds }),
+      })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.message || 'Unable to save tier thresholds.')
+      setStatus({ type: 'success', message: 'Tier thresholds updated.' })
+    } catch (error) {
+      setStatus({ type: 'error', message: error.message })
+    } finally {
+      setSavingThresholds(false)
+    }
+  }
+
+  const updateCustomerTier = async () => {
+    if (!selectedTierCustomer) return
+    try {
+      const response = await fetch(config.REST_API.Tiers.CustomerTier(selectedTierCustomer), {
+        method: 'POST',
+        headers: SUPERVISOR_HEADERS(),
+        body: JSON.stringify({ tier: selectedTier }),
+      })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.message || 'Unable to update customer tier.')
+      setStatus({ type: 'success', message: 'Customer tier updated.' })
+    } catch (error) {
+      setStatus({ type: 'error', message: error.message })
+    }
+  }
 
   useEffect(() => {
     if (!selectedApplication) {
@@ -451,7 +505,7 @@ function SupervisorTable({ onStatusCountsChange }) {
           </div>
           <div className="upload-zone">
             <div className="upload-illustration"><Icon name="upload" /></div>
-            <div>Drag and drop a CSV or Excel file here</div>
+            <div className="upload-prompt">Drag and drop a CSV or Excel file here</div>
             <label className="approve-btn" htmlFor="transaction-upload">{uploading ? 'Uploading...' : 'Choose File'}</label>
             <input id="transaction-upload" type="file" accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" onChange={handleTransactionUpload} hidden disabled={uploading} />
           </div>
@@ -480,19 +534,38 @@ function SupervisorTable({ onStatusCountsChange }) {
         <div className="threshold-panel card-light">
           <div className="threshold-header">
             <h3>Lifetime Tier Thresholds</h3>
-            <button className="edit-btn">Edit Thresholds</button>
+            <button className="edit-btn" onClick={saveThresholds} disabled={savingThresholds}>
+              {savingThresholds ? 'Saving...' : 'Save Thresholds'}
+            </button>
           </div>
           <div className="threshold-list">
-            {roles.supervisor.tiers.map(([name, amount, text]) => (
+            {thresholds.map(({ name, minimum }) => (
               <div key={name} className="threshold-item">
                 <div className={`threshold-icon ${tierMap[name] || 'tier-default'}`}><Icon name="star" /></div>
                 <div className="threshold-copy">
                   <div className="threshold-name">{name}</div>
-                  <div className="threshold-meta">{text}</div>
+                  <div className="threshold-meta">Lifetime volume minimum</div>
                 </div>
-                <div className="threshold-amount">{amount}</div>
+                <input
+                  className="threshold-amount"
+                  type="number"
+                  min="0"
+                  value={minimum}
+                  onChange={(event) => setThresholds((current) => current.map((tier) => tier.name === name ? { ...tier, minimum: Number(event.target.value) } : tier))}
+                />
               </div>
             ))}
+          </div>
+          <div className="tier-override-controls">
+            <strong>Manual Customer Tier</strong>
+            <select value={selectedTierCustomer} onChange={(event) => setSelectedTierCustomer(event.target.value)}>
+              <option value="">Select approved customer</option>
+              {approvedCustomers.map((customer) => <option key={customer.phone} value={customer.phone}>{customer.name}</option>)}
+            </select>
+            <select value={selectedTier} onChange={(event) => setSelectedTier(event.target.value)}>
+              {['Bronze', 'Silver', 'Gold', 'Diamond'].map((tier) => <option key={tier} value={tier}>{tier}</option>)}
+            </select>
+            <button className="edit-btn" onClick={updateCustomerTier} disabled={!selectedTierCustomer}>Update Tier</button>
           </div>
         </div>
       </div>

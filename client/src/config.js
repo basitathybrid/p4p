@@ -24,6 +24,10 @@ const config = {
     Uploads: {
       Transactions: `${ROOT_URL}uploads/transactions`,
     },
+    Tiers: {
+      Thresholds: `${ROOT_URL}tier-thresholds`,
+      CustomerTier: (phone) => `${ROOT_URL}review/customers/${encodeURIComponent(phone)}/tier`,
+    },
   },
 }
 

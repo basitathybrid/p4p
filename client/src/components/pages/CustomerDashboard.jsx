@@ -5,7 +5,38 @@ import config from '../../config'
 import { AppLayout } from '../layout/AppLayout'
 import { Icon, StatusBadge } from '../ui/Icon'
 
-function CustomerOverview({ application }) {
+function formatCurrency(value) {
+  return `$${Number(value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
+
+function formatActivityDate(value) {
+  if (!value) return 'No activity yet'
+
+  const date = new Date(value)
+  return `${date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+    })} ${date.toLocaleTimeString('en-US', {
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+    })}`
+}
+
+function formatActivityParts(value) {
+  if (!value) return { date: 'No activity yet', time: '' }
+
+  const activityDate = new Date(value)
+  return {
+    date: activityDate.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }),
+    time: activityDate.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }),
+  }
+}
+
+function CustomerOverview({ application, usage }) {
+  const tier = usage.reward_tier || 'Bronze'
+
   return (
     <div className="customer-overview">
       <div className="profile-wrap">
@@ -42,10 +73,10 @@ function CustomerOverview({ application }) {
       <div className="tier-side">
         <div className="tier-card card-light">
           <div className="shield-wrap"><Icon name="shield" /></div>
-          <div className="tier-label">Bronze</div>
-          <div className="tier-sub">You’re on the Bronze tier!</div>
+          <div className="tier-label">{tier}</div>
+          <div className="tier-sub">You&apos;re on the {tier} tier!</div>
           <div className="tier-progress"><span /></div>
-          <div className="tier-amount">$0.00 / $0.00</div>
+          <div className="tier-amount">{formatCurrency(usage.lifetime_transaction_volume)}</div>
           <div className="tier-footer">Lifetime Volume to reach Gold tier</div>
           <button className="view-benefits">View Tier Benefits →</button>
         </div>
@@ -54,7 +85,14 @@ function CustomerOverview({ application }) {
   )
 }
 
-function CustomerApprovedDashboard({ application }) {
+function CustomerApprovedDashboard({ application, usage, transactions }) {
+  const lastActivity = formatActivityParts(usage.last_activity_at)
+  const metrics = [
+    { label: 'Lifetime Transaction Volume', value: formatCurrency(usage.lifetime_transaction_volume) },
+    { label: 'Transaction Count', value: String(usage.transaction_count || 0) },
+    { label: 'Last Activity', value: lastActivity.date, time: lastActivity.time },
+  ]
+
   return (
     <>
       <div className="page-header">
@@ -66,16 +104,17 @@ function CustomerApprovedDashboard({ application }) {
           <span className="approved-pill">Account Approved</span>
         </div>
       </div>
-      <CustomerOverview application={application} />
+      <CustomerOverview application={application} usage={usage} />
       <div className="summary-grid three-up">
-        {roles.customer.metrics.map((metric, index) => (
+        {metrics.map((metric, index) => (
           <div className="metric-card card-light" key={metric.label}>
             <div className="metric-head">
-              <span>{metric.label}</span>
               <span className="small-icon"><Icon name={index === 0 ? 'money' : index === 1 ? 'table' : 'calendar'} /></span>
+              <span>{metric.label}</span>
             </div>
-            <div className="metric-value">{metric.value}</div>
-            <div className="metric-change">{metric.change}</div>
+            <div className={`metric-value${metric.time ? ' last-activity-value' : ''}`}>
+              {metric.time ? <>{metric.value}<small>{metric.time}</small></> : metric.value}
+            </div>
           </div>
         ))}
       </div>
@@ -90,16 +129,16 @@ function CustomerApprovedDashboard({ application }) {
               <tr><th>Date / Time</th><th>Type</th><th>Channel</th><th>Amount (USD)</th><th>Status</th><th>Reference ID</th></tr>
             </thead>
             <tbody>
-              {roles.customer.activity.length === 0 ? (
+              {transactions.length === 0 ? (
                 <tr><td colSpan="6">No transactions yet.</td></tr>
-              ) : roles.customer.activity.map((row) => (
-                <tr key={row[5]}>
-                  <td>{row[0]}</td>
-                  <td><span className="type-badge buy">{row[1]}</span></td>
-                  <td>{row[2]}</td>
-                  <td>{row[3]}</td>
-                  <td><StatusBadge text={row[4]} tone="green" /></td>
-                  <td>{row[5]}</td>
+              ) : transactions.map((row) => (
+                <tr key={row.transaction_id}>
+                  <td>{formatActivityDate(row.transaction_datetime)}</td>
+                  <td><span className="type-badge buy">{row.transaction_type.toUpperCase()}</span></td>
+                  <td>P3M</td>
+                  <td>{formatCurrency(row.transaction_amount)}</td>
+                  <td><StatusBadge text={row.transaction_status.toUpperCase()} tone="green" /></td>
+                  <td>{row.transaction_id}</td>
                 </tr>
               ))}
             </tbody>
@@ -150,7 +189,7 @@ function CustomerStatusCard({ status }) {
 
 export function CustomerDashboard() {
   const navigate = useNavigate()
-  const [state, setState] = useState({ loading: true, error: null, status: null, application: null })
+  const [state, setState] = useState({ loading: true, error: null, status: null, application: null, usage: null, transactions: [] })
 
   useEffect(() => {
     const token = localStorage.getItem('p4p_customer_token')
@@ -172,14 +211,14 @@ export function CustomerDashboard() {
             navigate('/login')
             return
           }
-          setState({ loading: false, error: data.message || 'Unable to load account status.', status: null, application: null })
+          setState({ loading: false, error: data.message || 'Unable to load account status.', status: null, application: null, usage: null, transactions: [] })
           return
         }
 
-        setState({ loading: false, error: null, status: data.status, application: data.application })
+        setState({ loading: false, error: null, status: data.status, application: data.application, usage: data.usage, transactions: data.transactions || [] })
       })
       .catch(() => {
-        setState({ loading: false, error: 'Unable to load account status.', status: null, application: null })
+        setState({ loading: false, error: 'Unable to load account status.', status: null, application: null, usage: null, transactions: [] })
       })
   }, [navigate])
 
@@ -195,7 +234,7 @@ export function CustomerDashboard() {
     return <CustomerStatusCard status={state.status} />
   }
 
-  return <CustomerApprovedDashboard application={state.application} />
+  return <CustomerApprovedDashboard application={state.application} usage={state.usage} transactions={state.transactions} />
 }
 
 export function CustomerPage() {

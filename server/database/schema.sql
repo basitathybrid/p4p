@@ -91,9 +91,31 @@ CREATE TABLE IF NOT EXISTS customer_usage (
   receive_total               DECIMAL(18, 2) NOT NULL DEFAULT 0,
   sell_total                  DECIMAL(18, 2) NOT NULL DEFAULT 0,
   reward_tier                 ENUM('Bronze', 'Silver', 'Gold', 'Diamond') NOT NULL DEFAULT 'Bronze',
+  tier_override               ENUM('Bronze', 'Silver', 'Gold', 'Diamond') NULL,
   updated_at                  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   CONSTRAINT fk_customer_usage_application FOREIGN KEY (phone) REFERENCES applications(phone)
 );
+
+CREATE TABLE IF NOT EXISTS tier_thresholds (
+  tier_name       ENUM('Bronze', 'Silver', 'Gold', 'Diamond') PRIMARY KEY,
+  minimum_volume  DECIMAL(18, 2) NOT NULL
+);
+
+INSERT INTO tier_thresholds (tier_name, minimum_volume) VALUES
+  ('Bronze', 0), ('Silver', 5000), ('Gold', 10000), ('Diamond', 15000)
+ON DUPLICATE KEY UPDATE tier_name = VALUES(tier_name);
+
+SET @tier_override_exists = (
+  SELECT COUNT(*) FROM information_schema.columns
+  WHERE table_schema = DATABASE() AND table_name = 'customer_usage' AND column_name = 'tier_override'
+);
+SET @tier_override_sql = IF(@tier_override_exists = 0,
+  "ALTER TABLE customer_usage ADD COLUMN tier_override ENUM('Bronze', 'Silver', 'Gold', 'Diamond') NULL AFTER reward_tier",
+  'SELECT 1'
+);
+PREPARE tier_override_stmt FROM @tier_override_sql;
+EXECUTE tier_override_stmt;
+DEALLOCATE PREPARE tier_override_stmt;
 
 CREATE TABLE IF NOT EXISTS supervisors (
   id            BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
