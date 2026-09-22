@@ -4,13 +4,37 @@ import { Icon } from '../ui/Icon'
 import roles from '../../data/roles'
 import config from '../../config'
 import play4PerksLogo from '../../assets/play4perks-logo.png'
+import moreThanJustPlay from '../../assets/more-than-just-play.png'
 
 export function AppLayout({ route, children }) {
   const currentRole = roles[route]
   const navigate = useNavigate()
+  const customerSidebar = [
+    { label: 'Home', icon: 'home', to: '/customer' },
+    { label: 'Rewards', icon: 'gift', to: '/customer' },
+    { label: 'Transactions', icon: 'history', to: '/customer' },
+    { label: 'Play & Earn', icon: 'controller', to: '/customer' },
+    { label: 'My Profile', icon: 'user', to: '/customer' },
+    { label: 'Support', icon: 'headset', to: '/customer' },
+    { label: 'FAQ', icon: 'question', to: '/customer' },
+  ]
+  const supervisorSidebar = {
+    Dashboard: 'dashboard',
+    'Pending Approvals': 'pending',
+    Customers: 'user',
+    Transactions: 'history',
+    Uploads: 'upload',
+    'Tier Configuration': 'shield',
+    Reports: 'table',
+    'Audit Logs': 'info',
+    Settings: 'lock',
+  }
   const [menuOpen, setMenuOpen] = useState(false)
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
-  const [displayUser, setDisplayUser] = useState(currentRole.user)
+  const [displayUser, setDisplayUser] = useState({
+    ...currentRole.user,
+    email: currentRole.user.email || 'ava.johnson@example.com',
+  })
   const [showChangePassword, setShowChangePassword] = useState(false)
   const [passwordForm, setPasswordForm] = useState({ oldPassword: '', newPassword: '', confirmPassword: '' })
   const [passwordFieldErrors, setPasswordFieldErrors] = useState({})
@@ -30,25 +54,41 @@ export function AppLayout({ route, children }) {
   }, [])
 
   useEffect(() => {
-    setDisplayUser(currentRole.user)
+    const nextDisplayUser = {
+      ...currentRole.user,
+      email: currentRole.user.email || 'ava.johnson@example.com',
+    }
 
     if (route === 'supervisor') {
       const name = localStorage.getItem('p4p_supervisor_name')
-      if (name) setDisplayUser({ name, role: currentRole.user.role })
+      if (name) {
+        nextDisplayUser.name = name
+      }
+      setDisplayUser(nextDisplayUser)
       return
     }
 
     const token = localStorage.getItem('p4p_customer_token')
-    if (!token) return
+    if (!token) {
+      setDisplayUser(nextDisplayUser)
+      return
+    }
 
     fetch(config.REST_API.Customer.Session, { headers: { Authorization: `Bearer ${token}` } })
       .then((response) => (response.ok ? response.json() : null))
       .then((data) => {
         if (data?.application?.name) {
-          setDisplayUser({ name: data.application.name, role: currentRole.user.role })
+          setDisplayUser({
+            name: data.application.name,
+            role: currentRole.user.role,
+            email: data.application.email || currentRole.user.email || 'ava.johnson@example.com',
+            phone: data.application.phone || currentRole.user.phone,
+          })
+        } else {
+          setDisplayUser(nextDisplayUser)
         }
       })
-      .catch(() => {})
+      .catch(() => setDisplayUser(nextDisplayUser))
   }, [route, currentRole.user])
 
   const handleLogout = () => {
@@ -139,10 +179,12 @@ export function AppLayout({ route, children }) {
   }
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${route === 'supervisor' ? 'supervisor-shell' : ''}`}>
       <aside className="sidebar">
         <div className="brand-block">
-          <img className="brand-logo" src={play4PerksLogo} alt="Play4Perks" />
+          <div className="brand-mark">
+            <img className="brand-logo" src={play4PerksLogo} alt="Play4Perks" />
+          </div>
           <button
             type="button"
             className="mobile-nav-toggle"
@@ -155,46 +197,67 @@ export function AppLayout({ route, children }) {
         </div>
 
         <nav className={`sidebar-nav ${mobileNavOpen ? 'mobile-nav-open' : ''}`}>
-          {currentRole.sidebar.map((item, index) => (
-            <NavLink
-              key={item}
-              to={route === 'customer' ? '/customer' : route === 'basic' ? '/basic-user' : '/supervisor'}
-              className={`nav-item ${index === 0 ? 'active' : ''}`}
-              onClick={() => setMobileNavOpen(false)}
-            >
-              <span className="nav-icon"><Icon name={['dashboard', 'user', 'card', 'trophy', 'table', 'shield', 'info', 'bell'][index % 8]} /></span>
-              {item}
-            </NavLink>
-          ))}
+          {(route === 'customer'
+            ? customerSidebar
+            : currentRole.sidebar.map((item, index) => ({
+              label: index === 0 ? 'Home' : item,
+              icon: index === 0 ? 'home' : supervisorSidebar[item] || 'info',
+              to: route === 'basic' ? '/basic-user' : '/supervisor',
+            }))
+          ).map((item, index) => {
+            const isActive = index === 0 || item.label === 'Pending Approvals'
+            return (
+              <NavLink
+                key={item.label}
+                to={item.to}
+                className={`nav-item ${isActive ? 'active' : ''}`}
+                onClick={() => setMobileNavOpen(false)}
+              >
+                <span className="nav-icon"><Icon name={item.icon} /></span>
+                <span className="nav-label">{item.label}</span>
+              </NavLink>
+            )
+          })}
         </nav>
 
-        <div className="earn-box">
-          <div className="gift-emoji">🎁</div>
-          <div className="earn-box-title">Earn more with Play4Perks!</div>
-          <button>Learn More</button>
-        </div>
+        <div className="p4p-sidebar-promo">
+          <div className="p4p-sidebar-promo-stack">
+            <img
+              src={moreThanJustPlay}
+              alt="More Than Just Play"
+              className="p4p-sidebar-promo-image"
+            />
 
-        <div className="user-mini-profile">
-          <div className="mini-avatar">{displayUser.name.split(' ').map((part) => part[0]).slice(0, 2).join('')}</div>
-          <div>
-            <div className="mini-name">{displayUser.name}</div>
-            <div className="mini-role">{displayUser.role}</div>
+            <button type="button" className="p4p-promo-button">
+              <span>Play Now</span>
+              <span className="p4p-promo-arrow">→</span>
+            </button>
           </div>
         </div>
+
+        <button type="button" className="sidebar-logout" onClick={handleLogout}>
+          <span className="logout-icon"><Icon name="logout" /></span>
+          <span>Log Out</span>
+        </button>
       </aside>
 
       <main className="main-panel">
         <header className="topbar">
-          <div />
+          <button type="button" className="header-menu" aria-label="Open menu">
+            <Icon name="menu" />
+          </button>
 
           <div className="topbar-actions">
-            <button className="header-icon" aria-label="Notifications"><Icon name="bell" /></button>
+            <span className="notification-wrap">
+              <button className="header-icon" aria-label="Notifications"><Icon name="bell" /></button>
+              <span className="notification-badge">3</span>
+            </span>
             <div className="toolbar-user-menu" ref={menuRef}>
               <button className="toolbar-user" onClick={() => setMenuOpen((open) => !open)}>
                 <div className="toolbar-avatar">{displayUser.name.split(' ').map((part) => part[0]).slice(0, 2).join('')}</div>
-                <div>
+                <div className="toolbar-user-text">
                   <div className="toolbar-name">{displayUser.name}</div>
-                  <div className="toolbar-role">{displayUser.role}</div>
+                  <div className="toolbar-role">{displayUser.email || 'ava.johnson@example.com'}</div>
                 </div>
                 <span className="toolbar-chevron"><Icon name="chevron" /></span>
               </button>

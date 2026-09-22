@@ -2,14 +2,26 @@ export const roles = {
   customer: {
     name: 'Customer',
     path: '/customer',
-    sidebar: ['Home', 'My Rewards', 'Transactions', 'Rewards History', 'My Profile', 'Support', 'FAQ'],
-    user: { name: 'Ava Johnson', role: 'Customer' },
+    sidebar: ['Home', 'Rewards', 'Transactions', 'Play & Earn', 'My Profile', 'Support', 'FAQ'],
+    user: {
+      name: 'Ava Johnson',
+      role: 'Customer',
+      email: 'ava.johnson@example.com',
+      phone: '+1 (919) 555-0147',
+    },
     metrics: [
-      { label: 'Lifetime Transaction Volume', value: '$0.00', change: '0% vs last 30 days' },
-      { label: 'Transaction Count', value: '0', change: '0 vs last 30 days' },
-      { label: 'Last Activity', value: '0', change: 'No activity yet' },
+      { label: 'Wallet Balance', value: '$120.50', change: '+12% this week' },
+      { label: 'Total Rewards Earned', value: '$532.00', change: '+8% this month' },
+      { label: 'Games Played', value: '26', change: '+4% this week' },
+      { label: 'Lifetime Transaction Volume', value: '$12,210.00', change: '+18% since joining' },
     ],
-    activity: [],
+    activity: [
+      ['May 28, 2026', 'Deposit', 'Ultra Panda', '$25.00', 'Completed', 'TRX-1105'],
+      ['May 27, 2026', 'Reward', 'Diamond Dragon', '$18.50', 'Completed', 'TRX-1104'],
+      ['May 25, 2026', 'Win', 'Fortune Tiger', '$42.00', 'Completed', 'TRX-1103'],
+      ['May 23, 2026', 'Bonus', 'Cash Frenzy', '$12.00', 'Completed', 'TRX-1102'],
+      ['May 20, 2026', 'Withdrawal', 'Wallet', '$80.00', 'Completed', 'TRX-1101'],
+    ],
   },
   basic: {
     name: 'Basic User',
