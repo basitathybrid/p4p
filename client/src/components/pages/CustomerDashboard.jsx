@@ -3,8 +3,20 @@ import { Link, useNavigate } from 'react-router-dom'
 import roles from '../../data/roles'
 import config from '../../config'
 import play4PerksLogo from '../../assets/play4perks-logo.png'
+import heroBannerArt from '../../assets/hero.png'
+import goldenDragonImg from '../../assets/games/golden-dragon.png'
+import magicCityImg from '../../assets/games/magic-city.png'
+import ultraPandaImg from '../../assets/games/ultra-panda.png'
+import vblinkImg from '../../assets/games/vblink.png'
 import { AppLayout } from '../layout/AppLayout'
 import { Icon, StatusBadge } from '../ui/Icon'
+
+const POPULAR_GAMES = [
+  { name: 'Golden Dragon', image: goldenDragonImg },
+  { name: 'Magic City', image: magicCityImg },
+  { name: 'Ultra Panda', image: ultraPandaImg },
+  { name: 'VBLink', image: vblinkImg },
+]
 
 function formatCurrency(value) {
   return `$${Number(value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
@@ -79,8 +91,8 @@ function CustomerOverview({ application, usage }) {
         <div className="tier-title">{tier}</div>
         <p>You&apos;re on the {tier} Tier!</p>
         <div className="tier-progress"><span /></div>
-        <div className="tier-points">2,340 / 5,000 points</div>
-        <small>Earn 2,660 more points to reach Gold Tier</small>
+        <div className="tier-points">0 / 0 points</div>
+        <small>Earn 0 more points to reach Gold Tier</small>
       </div>
 
       <div className="promo-card panel-card">
@@ -133,7 +145,7 @@ function CustomerApprovedDashboard({ application, usage, transactions }) {
               <span>REAL REWARDS</span>
             </div>
             <span className="welcome-neon-crown" />
-            <img src="/play4perks-banner-art.png" alt="" className="welcome-game-art" />
+            <img src={heroBannerArt} alt="" className="welcome-game-art" />
           </div>
         </section>
 
@@ -198,9 +210,10 @@ function CustomerApprovedDashboard({ application, usage, transactions }) {
             </div>
 
             <div className="games-grid">
-              {['Ultra Panda', 'Diamond Dragon', 'Fortune Tiger', 'Cash Frenzy'].map((game, index) => (
-                <div key={game} className={`game-tile tile-${index + 1}`}>
-                  <span>{game}</span>
+              {POPULAR_GAMES.map((game, index) => (
+                <div key={game.name} className={`game-tile tile-${index + 1}`}>
+                  <img src={game.image} alt={game.name} />
+                  <span>{game.name}</span>
                 </div>
               ))}
             </div>
@@ -221,7 +234,7 @@ function CustomerApprovedDashboard({ application, usage, transactions }) {
             <div className="cta-mark">🎁</div>
             <div className="cta-copy">
               <h3>Refer a Friend</h3>
-              <p>Invite friends and earn amazing rewards.</p>
+              <p>Invite friends and earn amazing rewards.</p> 
             </div>
             <button type="button" className="cta-action">Invite Now →</button>
           </div>

@@ -10,10 +10,10 @@ export const roles = {
       phone: '+1 (919) 555-0147',
     },
     metrics: [
-      { label: 'Wallet Balance', value: '$120.50', change: '+12% this week' },
-      { label: 'Total Rewards Earned', value: '$532.00', change: '+8% this month' },
-      { label: 'Games Played', value: '26', change: '+4% this week' },
-      { label: 'Lifetime Transaction Volume', value: '$12,210.00', change: '+18% since joining' },
+      { label: 'Wallet Balance', value: '$0.00', change: '0% this week' },
+      { label: 'Total Rewards Earned', value: '$0.00', change: '0% this month' },
+      { label: 'Games Played', value: '0', change: '0% this week' },
+      { label: 'Lifetime Transaction Volume', value: '$0.00', change: '0% since joining' },
     ],
     activity: [
       ['May 28, 2026', 'Deposit', 'Ultra Panda', '$25.00', 'Completed', 'TRX-1105'],

@@ -1,12 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import * as XLSX from 'xlsx'
 import roles, { tierMap } from '../../data/roles'
 import config from '../../config'
-import play4PerksLogo from '../../assets/play4perks-logo.png'
-import goldenDragonImg from '../../assets/games/golden-dragon.png'
-import magicCityImg from '../../assets/games/magic-city.png'
-import ultraPandaImg from '../../assets/games/ultra-panda.png'
-import vblinkImg from '../../assets/games/vblink.png'
 import { AppLayout } from '../layout/AppLayout'
 import { Icon, StatCard, StatusBadge } from '../ui/Icon'
 
@@ -17,15 +12,6 @@ const SUPERVISOR_HEADERS = () => ({
     ? { Authorization: `Bearer ${localStorage.getItem('p4p_supervisor_token')}` }
     : {}),
 })
-
-const SUPERVISOR_AUTH_HEADERS = () => ({
-  ...(localStorage.getItem('p4p_supervisor_token')
-    ? { Authorization: `Bearer ${localStorage.getItem('p4p_supervisor_token')}` }
-    : {}),
-})
-
-const PROFILE_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
-const PROFILE_IMAGE_MAX_SIZE = 5 * 1024 * 1024
 
 const emptyDetails = {
   name: '',
@@ -56,16 +42,6 @@ function formatPhone(phone) {
 function formatSubmittedAt(value) {
   if (!value) return 'Submitted recently'
   return `Submitted on ${new Date(value).toLocaleString()}`
-}
-
-function getInitials(name) {
-  return String(name || 'Supervisor')
-    .trim()
-    .split(/\s+/)
-    .map((part) => part[0])
-    .slice(0, 2)
-    .join('')
-    .toUpperCase() || 'S'
 }
 
 const CSV_COLUMNS = [
@@ -598,415 +574,42 @@ function SupervisorTable({ onStatusCountsChange }) {
 }
 
 export function SupervisorDashboard() {
-  const [supervisorProfile, setSupervisorProfile] = useState(null)
-  const [profileImageUrl, setProfileImageUrl] = useState('')
-  const [profilePreviewUrl, setProfilePreviewUrl] = useState('')
-  const [selectedProfileImage, setSelectedProfileImage] = useState(null)
-  const [profileStatus, setProfileStatus] = useState({ type: 'idle', message: '' })
-  const [profileLoading, setProfileLoading] = useState(true)
-  const [profileUploading, setProfileUploading] = useState(false)
-  const profileInputRef = useRef(null)
-  const profileImageObjectUrlRef = useRef('')
-
-  const replaceProfileImageUrl = (nextUrl) => {
-    if (profileImageObjectUrlRef.current) {
-      URL.revokeObjectURL(profileImageObjectUrlRef.current)
-    }
-    profileImageObjectUrlRef.current = nextUrl
-    setProfileImageUrl(nextUrl)
-  }
-
-  const fetchProfileImage = async () => {
-    const response = await fetch(config.REST_API.Supervisor.ProfilePicture, {
-      headers: SUPERVISOR_AUTH_HEADERS(),
-    })
-
-    if (response.status === 404) return ''
-    if (!response.ok) throw new Error('Unable to load the supervisor profile picture.')
-
-    return URL.createObjectURL(await response.blob())
-  }
-
-  useEffect(() => {
-    let active = true
-
-    const loadSupervisorProfile = async () => {
-      try {
-        const response = await fetch(config.REST_API.Supervisor.Profile, {
-          headers: SUPERVISOR_AUTH_HEADERS(),
-        })
-        const data = await response.json()
-
-        if (!response.ok) {
-          throw new Error(data.message || 'Unable to load the supervisor profile.')
-        }
-
-        const nextImageUrl = data.profile?.profilePictureUrl ? await fetchProfileImage() : ''
-        if (!active) {
-          if (nextImageUrl) URL.revokeObjectURL(nextImageUrl)
-          return
-        }
-
-        setSupervisorProfile(data.profile || null)
-        replaceProfileImageUrl(nextImageUrl)
-      } catch (error) {
-        if (active) {
-          setProfileStatus({ type: 'error', message: error.message || 'Unable to load the supervisor profile.' })
-        }
-      } finally {
-        if (active) setProfileLoading(false)
-      }
-    }
-
-    loadSupervisorProfile()
-
-    return () => {
-      active = false
-      if (profileImageObjectUrlRef.current) {
-        URL.revokeObjectURL(profileImageObjectUrlRef.current)
-      }
-    }
-  }, [])
-
-  const openProfilePicker = () => {
-    if (!profileUploading) profileInputRef.current?.click()
-  }
-
-  const handleProfileImageChange = (event) => {
-    const file = event.target.files?.[0]
-    event.target.value = ''
-
-    if (!file) return
-
-    if (!PROFILE_IMAGE_TYPES.includes(file.type)) {
-      setProfileStatus({ type: 'error', message: 'Choose a JPG, PNG, or WebP image.' })
-      return
-    }
-
-    if (file.size > PROFILE_IMAGE_MAX_SIZE) {
-      setProfileStatus({ type: 'error', message: 'Profile images must be 5 MB or smaller.' })
-      return
-    }
-
-    if (profilePreviewUrl) URL.revokeObjectURL(profilePreviewUrl)
-    setSelectedProfileImage(file)
-    setProfilePreviewUrl(URL.createObjectURL(file))
-    setProfileStatus({ type: 'idle', message: '' })
-  }
-
-  const cancelProfileImageChange = () => {
-    if (profilePreviewUrl) URL.revokeObjectURL(profilePreviewUrl)
-    setProfilePreviewUrl('')
-    setSelectedProfileImage(null)
-  }
-
-  const handleSaveProfileImage = async () => {
-    if (!selectedProfileImage) return
-
-    setProfileUploading(true)
-    setProfileStatus({ type: 'idle', message: '' })
-
-    try {
-      const response = await fetch(config.REST_API.Supervisor.ProfilePicture, {
-        method: 'POST',
-        headers: {
-          ...SUPERVISOR_AUTH_HEADERS(),
-          'Content-Type': selectedProfileImage.type,
-        },
-        body: selectedProfileImage,
-      })
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Unable to update the profile picture.')
-      }
-
-      const nextImageUrl = await fetchProfileImage()
-      replaceProfileImageUrl(nextImageUrl)
-      cancelProfileImageChange()
-      setSupervisorProfile((current) => ({ ...current, profilePictureUrl: data.profilePictureUrl }))
-      setProfileStatus({ type: 'success', message: 'Profile picture updated.' })
-    } catch (error) {
-      setProfileStatus({ type: 'error', message: error.message || 'Unable to update the profile picture.' })
-    } finally {
-      setProfileUploading(false)
-    }
-  }
-
-  const handleRemoveProfileImage = async () => {
-    if (!profileImageUrl || !window.confirm('Remove your profile picture?')) return
-
-    setProfileUploading(true)
-    setProfileStatus({ type: 'idle', message: '' })
-
-    try {
-      const response = await fetch(config.REST_API.Supervisor.ProfilePicture, {
-        method: 'DELETE',
-        headers: SUPERVISOR_AUTH_HEADERS(),
-      })
-      const data = await response.json()
-
-      if (!response.ok) {
-        throw new Error(data.message || 'Unable to remove the profile picture.')
-      }
-
-      replaceProfileImageUrl('')
-      setSupervisorProfile((current) => ({ ...current, profilePictureUrl: null }))
-      setProfileStatus({ type: 'success', message: 'Profile picture removed.' })
-    } catch (error) {
-      setProfileStatus({ type: 'error', message: error.message || 'Unable to remove the profile picture.' })
-    } finally {
-      setProfileUploading(false)
-    }
-  }
-
-  useEffect(() => () => {
-    if (profilePreviewUrl) URL.revokeObjectURL(profilePreviewUrl)
-  }, [profilePreviewUrl])
-
-  const transactions = [
-    { date: 'May 26, 2026 10:15 AM', type: 'Buy', label: 'Bank Transfer', amount: '$750.00', status: 'Completed', ref: 'TXN-849112' },
-    { date: 'May 25, 2026 09:32 AM', type: 'Reward', label: 'Daily Bonus', amount: '$10.00', status: 'Completed', ref: 'TXN-849111' },
-    { date: 'May 24, 2026 06:08 PM', type: 'Redeem', label: 'Play', amount: '$300.00', status: 'Completed', ref: 'TXN-849097' },
-    { date: 'May 23, 2026 11:47 AM', type: 'Buy', label: 'Credit Card', amount: '$450.00', status: 'Completed', ref: 'TXN-849073' },
-    { date: 'May 22, 2026 04:21 PM', type: 'Reward', label: 'Referral Bonus', amount: '$25.00', status: 'Completed', ref: 'TXN-849061' },
+  const [statusCounts, setStatusCounts] = useState({ submitted: 0, pendingReview: 0, decided: 0, active: 0 })
+  const stats = [
+    {
+      ...roles.supervisor.stats[0],
+      value: String(statusCounts.pendingReview),
+      note: statusCounts.pendingReview ? 'Requires your review' : 'Queue is clear',
+    },
+    {
+      ...roles.supervisor.stats[1],
+      value: String(statusCounts.active),
+      note: statusCounts.active ? 'Approved & active today' : 'No approved customers yet',
+    },
+    roles.supervisor.stats[2],
+    roles.supervisor.stats[3],
+    {
+      ...roles.supervisor.stats[4],
+      value: String(statusCounts.active),
+      note: 'All time',
+    },
   ]
-
-  const games = [
-    { name: 'Golden Dragon', image: goldenDragonImg },
-    { name: 'Magic City', image: magicCityImg },
-    { name: 'Ultra Panda', image: ultraPandaImg },
-    { name: 'VBLink', image: vblinkImg },
-  ]
-  const supervisorName = supervisorProfile?.name || localStorage.getItem('p4p_supervisor_name') || 'Supervisor'
-  const profileAvatarUrl = profilePreviewUrl || profileImageUrl
 
   return (
-    <div className="p4p-dashboard">
-      <div className="hero">
-        <div className="hero-left">
-          <img className="hero-logo" src={play4PerksLogo} alt="Play4Perks" />
-
-          <div className="hero-text-wrap">
-            <h1 className="hero-title">
-              Welcome back, <span>{supervisorName}!</span> 👋
-            </h1>
-            <p className="hero-subtitle">Play more. Earn more. Get exclusive perks with Play4Perks.</p>
-          </div>
-        </div>
-
-        <div className="hero-right" aria-hidden="true" />
-      </div>
-
-      <div className="overview-grid highlight-grid">
-        <div className="info-card profile-card">
-          <div className="card-title-row">
-            <div className="card-title">Profile Summary</div>
-            <button type="button" className="card-link">View Profile →</button>
-          </div>
-          <div className="profile-summary-inner">
-            <input
-              ref={profileInputRef}
-              className="profile-image-input"
-              type="file"
-              accept="image/jpeg,image/png,image/webp,.jpg,.jpeg,.png,.webp"
-              onChange={handleProfileImageChange}
-              disabled={profileUploading}
-            />
-            <div className="profile-avatar-wrap">
-              <button
-                type="button"
-                className="profile-avatar-button"
-                onClick={openProfilePicker}
-                disabled={profileUploading}
-                aria-label="Choose a profile picture"
-              >
-                {profileAvatarUrl ? (
-                  <img src={profileAvatarUrl} alt={`${supervisorName} profile`} className="profile-avatar-image" />
-                ) : (
-                  getInitials(supervisorName)
-                )}
-              </button>
-              <button
-                type="button"
-                className="profile-camera-button"
-                onClick={openProfilePicker}
-                disabled={profileUploading}
-                aria-label="Upload a profile picture"
-              >
-                <Icon name="upload" />
-              </button>
-            </div>
-            {profilePreviewUrl && (
-              <div className="profile-image-actions">
-                <span className="profile-image-preview-label">Preview selected</span>
-                <div className="profile-image-action-buttons">
-                  <button type="button" className="profile-image-cancel" onClick={cancelProfileImageChange} disabled={profileUploading}>Cancel</button>
-                  <button type="button" className="profile-image-save" onClick={handleSaveProfileImage} disabled={profileUploading}>
-                    {profileUploading ? 'Saving...' : 'Save'}
-                  </button>
-                </div>
-              </div>
-            )}
-            {!profilePreviewUrl && profileImageUrl && (
-              <button type="button" className="profile-image-remove" onClick={handleRemoveProfileImage} disabled={profileUploading}>
-                {profileUploading ? 'Updating...' : 'Remove picture'}
-              </button>
-            )}
-            {profileLoading && <div className="profile-image-status">Loading profile...</div>}
-            {profileStatus.message && (
-              <div className={`profile-image-status ${profileStatus.type}`}>{profileStatus.message}</div>
-            )}
-            <div className="profile-topline">
-              <div className="profile-name">{supervisorName}</div>
-              <div className="profile-tier-tag">{supervisorProfile?.role || 'Supervisor'}</div>
-            </div>
-            <div className="profile-meta-list">
-              <div className="meta-line"><span className="meta-icon">◉</span> Username <strong>{supervisorProfile?.username || '—'}</strong></div>
-              <div className="meta-line"><span className="meta-icon">✉</span> Email <strong>{supervisorProfile?.email || '—'}</strong></div>
-              <div className="meta-line"><span className="meta-icon">✓</span> Status <strong>{supervisorProfile ? 'Active' : '—'}</strong></div>
-              <div className="meta-line"><span className="meta-icon">⚑</span> Picture <strong>{profileImageUrl ? 'Uploaded' : 'Not set'}</strong></div>
-            </div>
-          </div>
-        </div>
-
-        <div className="info-card verified-card">
-          <div className="card-title-row">
-            <div className="card-title">Account Status</div>
-            <button type="button" className="card-link">View Details →</button>
-          </div>
-          <div className="shield-wrap">✓</div>
-          <div className="verified-title">Verified</div>
-          <div className="verified-copy">Your account is fully verified and ready to play!</div>
-          <div className="check-row"><span className="check-mark">✓</span> Phone &amp; Email Verified</div>
-        </div>
-
-        <div className="info-card tier-card">
-          <div className="card-title-row">
-            <div className="card-title">Current Tier</div>
-            <button type="button" className="card-link">View Tiers →</button>
-          </div>
-          <div className="tier-icon-wrap">★</div>
-          <div className="tier-name">Silver</div>
-          <div className="tier-copy">You&apos;re on the Silver Tier!</div>
-          <div className="tier-progress-line"><span /></div>
-          <div className="tier-stat"><strong>2,340</strong> / 5,000 points</div>
-          <div className="tier-subtle">Earn 2,660 more points to reach Gold Tier</div>
-        </div>
-
-        <div className="info-card promo-card">
-          <div className="promo-emoji">🎁</div>
-          <div className="promo-head">EXCLUSIVE<br />BONUS &amp; PROMOS</div>
-          <div className="promo-copy">More Play. More Perks.</div>
-          <button type="button" className="promo-button">Check Now →</button>
+    <>
+      <div className="page-header compact">
+        <div>
+          <h1>PayFe Supervisor Dashboard</h1>
+          <p>Review applications, audits and customer data.</p>
         </div>
       </div>
-
-      <div className="metrics-grid">
-        <div className="metric-card wallet-card">
-          <div className="metric-header">
-            <div className="metric-title">Wallet Balance</div>
-            <span className="metric-icon">💰</span>
-          </div>
-          <div className="metric-value">$120.50</div>
-          <div className="metric-foot">+12% this week</div>
-        </div>
-
-        <div className="metric-card reward-card">
-          <div className="metric-header">
-            <div className="metric-title">Total Reward Earned</div>
-            <span className="metric-icon">🎉</span>
-          </div>
-          <div className="metric-value">$532.00</div>
-          <div className="metric-foot">+8% this month</div>
-        </div>
-
-        <div className="metric-card games-card">
-          <div className="metric-header">
-            <div className="metric-title">Games Played</div>
-            <span className="metric-icon">🎮</span>
-          </div>
-          <div className="metric-value">26</div>
-          <div className="metric-foot">+4% this week</div>
-        </div>
-
-        <div className="metric-card volume-card">
-          <div className="metric-header">
-            <div className="metric-title">Lifetime Transaction Volume</div>
-            <span className="metric-icon">🏆</span>
-          </div>
-          <div className="metric-value">$12,210.00</div>
-          <div className="metric-foot">+18% since joining</div>
-        </div>
+      <div className="summary-grid five-up supervisor-stats">
+        {stats.map((card) => (
+          <StatCard key={card.title} title={card.title} value={card.value} note={card.note} tone={card.tone} />
+        ))}
       </div>
-
-      <div className="bottom-grid">
-        <div className="panel-card transactions-panel">
-          <div className="panel-header">
-            <div className="panel-title">Recent Transactions</div>
-            <button type="button" className="panel-link">View All →</button>
-          </div>
-          <table>
-            <thead>
-              <tr>
-                <th>Date / Time</th>
-                <th>Type</th>
-                <th>Game / Channel</th>
-                <th>Amount (USD)</th>
-                <th>Status</th>
-                <th>Reference ID</th>
-              </tr>
-            </thead>
-            <tbody>
-              {transactions.map((entry) => (
-                <tr key={entry.ref}>
-                  <td>{entry.date}</td>
-                  <td>{entry.type}</td>
-                  <td>{entry.label}</td>
-                  <td>{entry.amount}</td>
-                  <td><span className="status-pill success">✓ Completed</span></td>
-                  <td>{entry.ref}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="panel-card games-panel">
-          <div className="panel-header">
-            <div className="panel-title">Popular Games</div>
-            <button type="button" className="panel-link">View All →</button>
-          </div>
-          <div className="game-grid">
-            {games.map((game) => (
-              <a key={game.name} href={game.url} className="game-card game-tile">
-                <img src={game.image} alt={game.name} />
-              </a>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div className="cta-row">
-        <div className="cta-card profile-cta">
-          <div className="cta-icon"><Icon name="edit" /></div>
-          <div className="cta-copy">
-            <div className="cta-title">Complete Your Profile</div>
-            <div className="cta-subtitle">Keep your profile up to date for a safer and smoother experience.</div>
-          </div>
-          <button type="button" className="cta-button">Update Profile →</button>
-        </div>
-
-        <div className="cta-card referral-cta">
-          <div className="cta-icon">🎁</div>
-          <div className="cta-copy">
-            <div className="cta-title">Refer a Friend</div>
-            <div className="cta-subtitle">Invite friends and earn amazing rewards!</div>
-          </div>
-          <button type="button" className="cta-button alt">Invite Now →</button>
-        </div>
-      </div>
-    </div>
+      <SupervisorTable onStatusCountsChange={setStatusCounts} />
+    </>
   )
 }
 
