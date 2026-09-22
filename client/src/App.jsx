@@ -28,7 +28,7 @@ function App() {
   return (
     <Routes>
       <Route path="/" element={<Navigate to="/signup" replace />} />
-      <Route path="/customer" element={<ProtectedRoute allowedRole="customer"><CustomerPage /></ProtectedRoute>} />
+      <Route path="/customer" element={<CustomerPage />} />
       <Route path="/basic-user" element={<ProtectedRoute allowedRole="basic"><BasicUserPage /></ProtectedRoute>} />
       <Route path="/supervisor" element={<SupervisorPage />} />
       <Route path="/signup" element={<CustomerSignupPage />} />
