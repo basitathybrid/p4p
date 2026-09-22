@@ -11,6 +11,13 @@ const { signCustomerToken, signSupervisorToken, signBasicUserToken, requireCusto
 const { importTransactions } = require('./transactionService');
 const { TIER_RANK, getTierThresholds, tierForVolume, validateThresholds } = require('./tierService');
 const {
+  MAX_PROFILE_IMAGE_BYTES,
+  storeProfileImage,
+  removeProfileImage,
+  openProfileImage,
+} = require('./services/profileImageStorage');
+const { getSupervisorProfile, setSupervisorProfileImage } = require('./services/supervisorProfileService');
+const {
   createSignupSession,
   verifySignupOtp,
   normalizePhone,
@@ -26,6 +33,7 @@ const {
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const profileImageBodyParser = express.raw({ type: '*/*', limit: MAX_PROFILE_IMAGE_BYTES });
 
 app.use(cors());
 app.use(express.json());
@@ -370,6 +378,135 @@ app.post('/api/auth/change-password', requireAuth(), async (req, res) => {
   }
 });
 
+app.get('/api/supervisor/profile', requireSupervisorAuth, async (req, res) => {
+  try {
+    const profile = await getSupervisorProfile(req.user.id);
+
+    if (!profile) {
+      return res.status(404).json({ success: false, code: 'NOT_FOUND', message: 'Supervisor profile not found.' });
+    }
+
+    return res.status(200).json({
+      success: true,
+      profile: {
+        ...profile,
+        profileImageKey: undefined,
+        profilePictureUrl: profile.profileImageKey ? '/api/supervisor/profile-picture' : null,
+      },
+    });
+  } catch (error) {
+    console.error('load supervisor profile failed:', error);
+    return res.status(500).json({ success: false, code: 'SERVER_ERROR', message: 'Unable to load supervisor profile.', error: error.message });
+  }
+});
+
+app.get('/api/supervisor/profile-picture', requireSupervisorAuth, async (req, res, next) => {
+  try {
+    const profile = await getSupervisorProfile(req.user.id);
+
+    if (!profile || !profile.profileImageKey) {
+      return res.status(404).json({ success: false, code: 'NOT_FOUND', message: 'Supervisor profile picture not found.' });
+    }
+
+    const image = await openProfileImage(profile.profileImageKey);
+    if (!image) {
+      return res.status(404).json({ success: false, code: 'NOT_FOUND', message: 'Supervisor profile picture not found.' });
+    }
+
+    res.type(image.contentType);
+    res.set('Cache-Control', 'private, max-age=300');
+    return res.sendFile(image.filePath);
+  } catch (error) {
+    return next(error);
+  }
+});
+
+app.post('/api/supervisor/profile-picture', requireSupervisorAuth, profileImageBodyParser, async (req, res) => {
+  let newImageKey;
+
+  try {
+    const supervisorId = req.user.id;
+    const profile = await getSupervisorProfile(supervisorId);
+
+    if (!profile) {
+      return res.status(404).json({ success: false, code: 'NOT_FOUND', message: 'Supervisor profile not found.' });
+    }
+
+    newImageKey = await storeProfileImage(supervisorId, req.headers['content-type'], req.body);
+    const updated = await setSupervisorProfileImage(supervisorId, newImageKey);
+
+    if (!updated) {
+      const error = new Error('Supervisor profile not found.');
+      error.code = 'NOT_FOUND';
+      throw error;
+    }
+
+    if (profile.profileImageKey) {
+      try {
+        await removeProfileImage(profile.profileImageKey);
+      } catch (error) {
+        console.error('remove previous supervisor profile picture failed:', error);
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Supervisor profile picture updated.',
+      profilePictureUrl: '/api/supervisor/profile-picture',
+    });
+  } catch (error) {
+    if (newImageKey) {
+      try {
+        await removeProfileImage(newImageKey);
+      } catch (cleanupError) {
+        console.error('remove failed supervisor profile picture upload failed:', cleanupError);
+      }
+    }
+
+    const statusCode = {
+      NOT_FOUND: 404,
+      UNSUPPORTED_IMAGE_TYPE: 415,
+      EMPTY_IMAGE: 400,
+      IMAGE_TOO_LARGE: 413,
+      INVALID_IMAGE_DATA: 400,
+    }[error.code] || 500;
+    const message = statusCode === 500 ? 'Unable to update supervisor profile picture.' : error.message;
+    console.error('update supervisor profile picture failed:', error);
+    return res.status(statusCode).json({ success: false, code: error.code || 'SERVER_ERROR', message });
+  }
+});
+
+app.delete('/api/supervisor/profile-picture', requireSupervisorAuth, async (req, res) => {
+  try {
+    const supervisorId = req.user.id;
+    const profile = await getSupervisorProfile(supervisorId);
+
+    if (!profile) {
+      return res.status(404).json({ success: false, code: 'NOT_FOUND', message: 'Supervisor profile not found.' });
+    }
+
+    if (!profile.profileImageKey) {
+      return res.status(200).json({ success: true, message: 'Supervisor profile picture removed.' });
+    }
+
+    const updated = await setSupervisorProfileImage(supervisorId, null);
+    if (!updated) {
+      return res.status(404).json({ success: false, code: 'NOT_FOUND', message: 'Supervisor profile not found.' });
+    }
+
+    try {
+      await removeProfileImage(profile.profileImageKey);
+    } catch (error) {
+      console.error('remove supervisor profile picture failed:', error);
+    }
+
+    return res.status(200).json({ success: true, message: 'Supervisor profile picture removed.' });
+  } catch (error) {
+    console.error('delete supervisor profile picture failed:', error);
+    return res.status(500).json({ success: false, code: 'SERVER_ERROR', message: 'Unable to remove supervisor profile picture.', error: error.message });
+  }
+});
+
 app.get('/api/customer/session', requireCustomerAuth, async (req, res) => {
   try {
     const application = await getApplication(req.customerPhone);
@@ -598,6 +735,14 @@ app.get('/api/signup/registered-phones', async (req, res) => {
 
 app.get('/', (req, res) => {
   res.json({ message: 'P4P server is running' });
+});
+
+app.use((error, req, res, next) => {
+  if (error.type === 'entity.too.large') {
+    return res.status(413).json({ success: false, code: 'IMAGE_TOO_LARGE', message: 'Profile images must be 5 MB or smaller.' });
+  }
+
+  return next(error);
 });
 
 async function startServer() {

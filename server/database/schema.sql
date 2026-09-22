@@ -125,9 +125,22 @@ CREATE TABLE IF NOT EXISTS supervisors (
   password_hash VARCHAR(255) NOT NULL,
   role          VARCHAR(50) NOT NULL DEFAULT 'supervisor',
   is_active     TINYINT(1) NOT NULL DEFAULT 1,
+  profile_image_key VARCHAR(512) NULL,
   created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
+
+SET @supervisor_profile_image_key_exists = (
+  SELECT COUNT(*) FROM information_schema.columns
+  WHERE table_schema = DATABASE() AND table_name = 'supervisors' AND column_name = 'profile_image_key'
+);
+SET @supervisor_profile_image_key_sql = IF(@supervisor_profile_image_key_exists = 0,
+  'ALTER TABLE supervisors ADD COLUMN profile_image_key VARCHAR(512) NULL AFTER is_active',
+  'SELECT 1'
+);
+PREPARE supervisor_profile_image_key_stmt FROM @supervisor_profile_image_key_sql;
+EXECUTE supervisor_profile_image_key_stmt;
+DEALLOCATE PREPARE supervisor_profile_image_key_stmt;
 
 INSERT INTO supervisors (full_name, username, email, password_hash, role, is_active)
 VALUES (

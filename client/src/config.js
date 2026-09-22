@@ -12,6 +12,10 @@ const config = {
     Customer: {
       Session: `${ROOT_URL}customer/session`,
     },
+    Supervisor: {
+      Profile: `${ROOT_URL}supervisor/profile`,
+      ProfilePicture: `${ROOT_URL}supervisor/profile-picture`,
+    },
     Signup: {
       Request: `${ROOT_URL}signup/request`,
       Verify: `${ROOT_URL}signup/verify`,

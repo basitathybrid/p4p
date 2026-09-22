@@ -3613,6 +3613,133 @@ button {
   gap: 12px;
 }
 
+.profile-image-input {
+  display: none;
+}
+
+.profile-avatar-wrap {
+  position: relative;
+  width: 54px;
+  height: 54px;
+}
+
+.profile-avatar-button {
+  width: 54px;
+  height: 54px;
+  padding: 0;
+  border: 3px solid rgba(255,255,255,0.18);
+  border-radius: 50%;
+  background: linear-gradient(135deg, #f2d3ae, #8c5cff);
+  color: #1a1f2f;
+  display: grid;
+  place-items: center;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+  overflow: hidden;
+  transition: transform 160ms ease, box-shadow 160ms ease;
+}
+
+.profile-avatar-button:hover:not(:disabled),
+.profile-avatar-button:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 0 0 3px rgba(214, 122, 255, 0.22);
+  outline: none;
+}
+
+.profile-avatar-button:disabled,
+.profile-camera-button:disabled,
+.profile-image-action-buttons button:disabled,
+.profile-image-remove:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.profile-avatar-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profile-camera-button {
+  position: absolute;
+  right: -7px;
+  bottom: -5px;
+  width: 26px;
+  height: 26px;
+  padding: 5px;
+  border: 2px solid #24113f;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #d67aff, #7625ff);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  box-shadow: 0 5px 12px rgba(80, 16, 150, 0.34);
+}
+
+.profile-camera-button svg {
+  width: 13px;
+  height: 13px;
+}
+
+.profile-image-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-width: 0;
+}
+
+.profile-image-preview-label,
+.profile-image-status {
+  color: rgba(228, 214, 255, 0.7);
+  font-size: 0.7rem;
+}
+
+.profile-image-action-buttons {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.profile-image-action-buttons button,
+.profile-image-remove {
+  min-height: 32px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 0.7rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.profile-image-cancel,
+.profile-image-remove {
+  border: 1px solid rgba(214, 122, 255, 0.4);
+  background: rgba(118, 37, 255, 0.08);
+  color: #e6b8ff;
+}
+
+.profile-image-save {
+  border: 1px solid rgba(255, 222, 115, 0.48);
+  background: linear-gradient(135deg, #f4d77d, #ff9a44);
+  color: #24152d;
+}
+
+.profile-image-remove {
+  align-self: flex-start;
+}
+
+.profile-image-status.success {
+  color: #9df5bd;
+}
+
+.profile-image-status.error {
+  color: #ff9eae;
+}
+
 .profile-avatar {
   width: 54px;
   height: 54px;
@@ -5429,4 +5556,228 @@ button {
   .signup-feature-strip small { font-size: 0.43rem; white-space: normal; line-height: 1.05; }
   .customer-signup-shell .login-gift { right: -18px; transform: scale(0.78) rotate(8deg); }
   .signup-controller { left: 45%; transform: scale(0.82) rotate(-17deg); transform-origin: bottom left; }
+}
+
+/* Responsive dashboard shell */
+@media (max-width: 1100px) {
+  .main-panel {
+    width: auto;
+    max-width: none;
+  }
+
+  .nav-item {
+    padding: 9px 11px;
+    gap: 10px;
+    font-size: 11px;
+    min-height: 40px;
+    height: 40px;
+  }
+
+  .nav-icon {
+    width: 20px;
+    min-width: 20px;
+  }
+
+  .supervisor-shell .sidebar {
+    flex-basis: 170px;
+    width: 170px;
+    min-width: 170px;
+    max-width: 170px;
+  }
+
+  .supervisor-shell .content-area {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .supervisor-shell .overview-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .supervisor-shell .metrics-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .supervisor-shell .bottom-grid,
+  .supervisor-shell .cta-row {
+    grid-template-columns: 1fr;
+  }
+
+  .supervisor-shell .transactions-panel {
+    overflow-x: auto;
+  }
+
+  .supervisor-shell .transactions-panel table {
+    min-width: 680px;
+  }
+}
+
+@media (max-width: 760px) {
+  .app-shell,
+  .supervisor-shell {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .sidebar,
+  .supervisor-shell .sidebar {
+    width: 100%;
+    min-width: 0;
+    max-width: none;
+    min-height: 0;
+    height: auto;
+    flex: 0 0 auto;
+  }
+
+  .nav-item {
+    padding: 8px 10px;
+    gap: 9px;
+    font-size: 10px;
+    min-height: 38px;
+    height: 38px;
+  }
+
+  .nav-icon {
+    width: 19px;
+    min-width: 19px;
+  }
+
+  .main-panel,
+  .supervisor-shell .main-panel {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .supervisor-shell .content-area {
+    padding: 12px 12px 20px;
+  }
+
+  .supervisor-shell .overview-grid,
+  .supervisor-shell .metrics-grid,
+  .supervisor-shell .bottom-grid,
+  .supervisor-shell .cta-row {
+    grid-template-columns: 1fr;
+  }
+
+  .supervisor-shell .hero {
+    height: auto !important;
+    min-height: 132px !important;
+  }
+
+  .supervisor-shell .hero-left {
+    width: 100% !important;
+    padding: 16px !important;
+  }
+
+  .supervisor-shell .hero-right {
+    display: none;
+  }
+
+  .supervisor-shell .hero-logo {
+    width: 56px !important;
+    height: 56px !important;
+    margin-right: 10px !important;
+  }
+
+  .supervisor-shell .hero-title {
+    font-size: 18px !important;
+    line-height: 1.2 !important;
+    white-space: normal !important;
+  }
+
+  .supervisor-shell .hero-title span {
+    margin-left: 4px !important;
+  }
+
+  .supervisor-shell .hero-subtitle {
+    font-size: 10px !important;
+    line-height: 1.35 !important;
+    white-space: normal !important;
+  }
+
+  .supervisor-shell .card-title-row,
+  .supervisor-shell .panel-header {
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  .supervisor-shell .info-card,
+  .supervisor-shell .panel-card,
+  .supervisor-shell .cta-card {
+    min-width: 0;
+  }
+
+  .supervisor-shell .game-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .supervisor-shell .game-tile {
+    min-height: 105px;
+  }
+
+  .supervisor-shell .cta-card {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .supervisor-shell .cta-button {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+
+  .topbar {
+    min-height: 60px;
+    padding: 10px 12px;
+  }
+
+  .header-menu {
+    display: none;
+  }
+
+  .topbar-actions {
+    width: 100%;
+    justify-content: flex-end;
+  }
+
+  .toolbar-user {
+    max-width: calc(100vw - 84px);
+  }
+
+  .toolbar-name,
+  .toolbar-role,
+  .toolbar-chevron {
+    display: none;
+  }
+
+  .supervisor-shell .transactions-panel table {
+    min-width: 680px;
+  }
+}
+
+@media (max-width: 420px) {
+  .supervisor-shell .content-area {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  .supervisor-shell .hero-left {
+    padding: 12px !important;
+  }
+
+  .supervisor-shell .hero-logo {
+    width: 48px !important;
+    height: 48px !important;
+    margin-right: 8px !important;
+  }
+
+  .supervisor-shell .hero-title {
+    font-size: 16px !important;
+  }
+
+  .supervisor-shell .game-grid {
+    gap: 8px;
+  }
+
+  .supervisor-shell .game-tile {
+    min-height: 92px;
+  }
 }
