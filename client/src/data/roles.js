@@ -12,8 +12,8 @@ export const roles = {
     metrics: [
       { label: 'Wallet Balance', value: '$0.00', change: '0% this week' },
       { label: 'Total Rewards Earned', value: '$0.00', change: '0% this month' },
-      { label: 'Games Played', value: '0', change: '0% this week' },
       { label: 'Lifetime Transaction Volume', value: '$0.00', change: '0% since joining' },
+      { label: 'Last Activity', value: '0', change: '0% this week' },
     ],
     activity: [
       ['May 28, 2026', 'Deposit', 'Ultra Panda', '$25.00', 'Completed', 'TRX-1105'],

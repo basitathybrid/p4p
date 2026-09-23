@@ -66,11 +66,11 @@ html, body, #root {
 }
 
 .nav-item.active {
-  background: linear-gradient(90deg, #7625ff 0%, #a82cff 100%) !important;
-  background-image: linear-gradient(90deg, #7625ff 0%, #a82cff 100%) !important;
-  border: none !important;
+  background: linear-gradient(90deg, #8f43ff 0%, #b16cff 100%) !important;
+  background-image: linear-gradient(90deg, #8f43ff 0%, #b16cff 100%) !important;
+  border: 1px solid rgba(214, 181, 255, 0.70) !important;
   border-radius: 12px !important;
-  box-shadow: 0 0 12px rgba(168, 44, 255, 0.55) !important;
+  box-shadow: 0 12px 24px rgba(110, 49, 214, 0.28), inset 0 1px 0 rgba(255,255,255,0.18), 0 0 16px rgba(143, 67, 255, 0.20) !important;
   color: #ffffff !important;
 }
 

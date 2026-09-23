@@ -3,7 +3,8 @@ import { Link, useNavigate } from 'react-router-dom'
 import roles from '../../data/roles'
 import config from '../../config'
 import play4PerksLogo from '../../assets/play4perks-logo.png'
-import heroBannerArt from '../../assets/hero.png'
+import welcomeBannerArt from '../../assets/play4perks-banner-art.png'
+import promoGiftBox from '../../assets/more-than-just-play.png'
 import goldenDragonImg from '../../assets/games/golden-dragon.png'
 import magicCityImg from '../../assets/games/magic-city.png'
 import ultraPandaImg from '../../assets/games/ultra-panda.png'
@@ -45,48 +46,98 @@ function CustomerOverview({ application, usage }) {
   return (
     <div className="customer-overview">
       <div className="profile-summary-card panel-card">
+        <div className="profile-summary-heading">
+          <div className="profile-summary-heading-title">
+            <span className="profile-summary-heading-icon"><Icon name="user" /></span>
+            <h3>Profile Summary</h3>
+          </div>
+          <button type="button" className="profile-summary-view-button">View Profile <span>→</span></button>
+        </div>
+
         <div className="profile-card-header">
           <div className="profile-badge-wrap">
             <div className="profile-avatar">{avatarText}</div>
+            <span className="profile-online-dot" aria-label="Online" />
           </div>
           <div className="profile-header-copy">
             <h3>{profileName}</h3>
-            <span className="gold-badge">Gold Member</span>
+            <span className="gold-badge"><Icon name="star" /> Gold Member</span>
             <span className="profile-subtext">Player ID: {application?.playerId || 'P4P-2048'}</span>
           </div>
         </div>
 
         <div className="profile-detail-list">
           <div className="profile-detail-item">
-            <span className="detail-icon"><Icon name="mail" /></span>
-            <strong>{application?.email || 'ava.johnson@example.com'}</strong>
+            <span className="detail-icon"><Icon name="user" /></span>
+            <span className="detail-label">Name</span>
+            <strong>{profileName}</strong>
           </div>
           <div className="profile-detail-item">
             <span className="detail-icon"><Icon name="phone" /></span>
+            <span className="detail-label">Phone Number</span>
             <strong>{application?.phone || '+1 (919) 555-0147'}</strong>
           </div>
           <div className="profile-detail-item">
-            <span className="detail-icon"><Icon name="calendar" /></span>
-            <strong>{application?.joined || 'June 12, 2024'}</strong>
+            <span className="detail-icon"><Icon name="mail" /></span>
+            <span className="detail-label">Email Address</span>
+            <strong>{application?.email || 'ava.johnson@example.com'}</strong>
           </div>
           <div className="profile-detail-item">
             <span className="detail-icon"><Icon name="info" /></span>
-            <strong>🇺🇸 United States</strong>
+            <span className="detail-label">Player Mobile ID</span>
+            <strong>{application?.playerMobileId || 'M-656-987-989'}</strong>
+          </div>
+          <div className="profile-detail-item">
+            <span className="detail-icon"><Icon name="info" /></span>
+            <span className="detail-label">Player ID</span>
+            <strong>{application?.playerId || 'P4P-2048'}</strong>
+          </div>
+          <div className="profile-detail-item">
+            <span className="detail-icon"><Icon name="info" /></span>
+            <span className="detail-label">Facebook Link</span>
+            <strong>{application?.facebook || '—'}</strong>
+          </div>
+          <div className="profile-detail-item">
+            <span className="detail-icon"><Icon name="info" /></span>
+            <span className="detail-label">Instagram Handle</span>
+            <strong>{application?.instagram || '—'}</strong>
+          </div>
+          <div className="profile-detail-item">
+            <span className="detail-icon"><Icon name="info" /></span>
+            <span className="detail-label">Telegram ID</span>
+            <strong>{application?.telegram || '—'}</strong>
           </div>
         </div>
       </div>
 
       <div className="verification-card panel-card">
+        <div className="verification-heading">
+          <div className="verification-heading-title">
+            <span className="verification-heading-icon"><Icon name="user" /></span>
+            <h3>Account Status</h3>
+          </div>
+          <button type="button" className="profile-summary-view-button">View Details <span>→</span></button>
+        </div>
         <div className="verification-shield"><Icon name="shield" /></div>
         <h3>Verified</h3>
         <p>Your account is fully verified and ready to play!</p>
         <div className="verification-status">
-          <span className="verification-dot" />
-          Phone &amp; Email Verified
+          <span className="verification-check"><Icon name="check" /></span>
+          <span>
+            <strong>Phone Number Verified</strong>
+            <small>You can now play, earn and redeem.</small>
+          </span>
         </div>
       </div>
 
       <div className="tier-card panel-card">
+        <div className="verification-heading">
+          <div className="verification-heading-title">
+            <span className="verification-heading-icon"><Icon name="crown" /></span>
+            <h3>Current Tier</h3>
+          </div>
+          <button type="button" className="profile-summary-view-button">View Tiers <span>→</span></button>
+        </div>
         <div className="tier-graphic"><Icon name="star" /></div>
         <div className="tier-title">{tier}</div>
         <p>You&apos;re on the {tier} Tier!</p>
@@ -96,13 +147,14 @@ function CustomerOverview({ application, usage }) {
       </div>
 
       <div className="promo-card panel-card">
+        <span className="promo-chip">LIMITED TIME</span>
         <div className="promo-art" aria-hidden="true">
-          <span className="promo-chip">LIMITED TIME</span>
-          <span className="promo-crown">👑</span>
-          <span className="promo-gift">🎁</span>
-          <span className="promo-coin">◉</span>
+          <img src={promoGiftBox} alt="" className="promo-art-image" />
         </div>
-        <h3>EXCLUSIVE BONUS &amp; PROMOS</h3>
+        <h3>
+          <span className="promo-title-accent">EXCLUSIVE</span>
+          <span className="promo-title-gold">BONUS &amp; PROMOS</span>
+        </h3>
         <p>More Play. More Perks.</p>
         <button type="button" className="promo-button">Check Now <span>→</span></button>
       </div>
@@ -118,7 +170,7 @@ function CustomerApprovedDashboard({ application, usage, transactions }) {
     value: metric.label === 'Lifetime Transaction Volume' && usage?.lifetime_transaction_volume != null
       ? formatCurrency(usage.lifetime_transaction_volume)
       : metric.value,
-    icon: metric.label.includes('Wallet') ? 'money' : metric.label.includes('Rewards') ? 'trophy' : metric.label.includes('Games') ? 'gamepad' : 'table',
+    icon: metric.label.includes('Wallet') ? 'wallet' : metric.label.includes('Rewards') ? 'trophy' : metric.label.includes('Last Activity') ? 'history' : 'table',
   }))
 
   return (
@@ -128,8 +180,8 @@ function CustomerApprovedDashboard({ application, usage, transactions }) {
           <div className="welcome-brand" aria-hidden="true">
             <div className="welcome-brand-mark">
               <img src={play4PerksLogo} alt="Play4Perks" />
-              <span className="welcome-brand-pill">P4P</span>
             </div>
+            <div className="welcome-brand-tagline">Play More Earn More</div>
           </div>
 
           <div className="welcome-copy">
@@ -140,12 +192,7 @@ function CustomerApprovedDashboard({ application, usage, transactions }) {
           </div>
 
           <div className="welcome-art" aria-hidden="true">
-            <div className="welcome-script">
-              <span>REAL PLAYERS</span>
-              <span>REAL REWARDS</span>
-            </div>
-            <span className="welcome-neon-crown" />
-            <img src={heroBannerArt} alt="" className="welcome-game-art" />
+            <img src={welcomeBannerArt} alt="" className="welcome-game-art" />
           </div>
         </section>
 
@@ -158,7 +205,7 @@ function CustomerApprovedDashboard({ application, usage, transactions }) {
             <div className="dashboard-stat-card" key={metric.label}>
               <div className="stat-head">
                 <span>{metric.label}</span>
-                <span className="mini-icon"><Icon name={metric.icon} /></span>
+                <span className={`mini-icon${metric.icon === 'wallet' ? ' mini-icon-wallet' : ''}`}><Icon name={metric.icon} /></span>
               </div>
               <div className="stat-value">{metric.value}</div>
               <div className="stat-change">{metric.change}</div>
