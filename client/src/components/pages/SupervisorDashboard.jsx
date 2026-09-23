@@ -400,7 +400,7 @@ function SupervisorTable({ onStatusCountsChange }) {
           )}
           <div className="queue-list">
             {!loading && applications.length === 0 && (
-              <div className="queue-item">
+              <div className="queue-item queue-empty">
                 <div className="queue-copy">
                   <div className="queue-name">No applications pending review</div>
                   <div className="queue-meta">Verified applications will appear here after SMS confirmation.</div>
@@ -598,9 +598,15 @@ export function SupervisorDashboard() {
   return (
     <>
       <div className="page-header compact">
-        <div>
-          <h1>PayFe Supervisor Dashboard</h1>
-          <p>Review applications, audits and customer data.</p>
+        <div className="page-header-title-wrap">
+          <div className="page-header-icon" aria-hidden="true">
+            <Icon name="trophy" />
+          </div>
+          <div className="page-header-copy">
+            <span className="page-header-kicker">Executive oversight</span>
+            <h1>PayFe Supervisor</h1>
+            <p>Review applications, audits and customer data.</p>
+          </div>
         </div>
       </div>
       <div className="summary-grid five-up supervisor-stats">

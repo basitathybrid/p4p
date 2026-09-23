@@ -22,12 +22,12 @@ export function AppLayout({ route, children }) {
     Dashboard: 'dashboard',
     'Pending Approvals': 'pending',
     Customers: 'user',
-    Transactions: 'history',
+    Transactions: 'money',
     Uploads: 'upload',
-    'Tier Configuration': 'shield',
-    Reports: 'table',
-    'Audit Logs': 'info',
-    Settings: 'lock',
+    'Tier Configuration': 'tier-config',
+    Reports: 'reports',
+    'Audit Logs': 'audit',
+    Settings: 'settings',
   }
   const [menuOpen, setMenuOpen] = useState(false)
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
@@ -182,8 +182,11 @@ export function AppLayout({ route, children }) {
     <div className={`app-shell ${route === 'supervisor' ? 'supervisor-shell' : ''}`}>
       <aside className="sidebar">
         <div className="brand-block">
-          <div className="brand-mark">
-            <img className="brand-logo" src={play4PerksLogo} alt="Play4Perks" />
+          <div className="brand-stack">
+            <div className="brand-mark">
+              <img className="brand-logo" src={play4PerksLogo} alt="Play4Perks" />
+            </div>
+            <div className="brand-tagline">Play More Earn More</div>
           </div>
           <button
             type="button"
@@ -220,20 +223,22 @@ export function AppLayout({ route, children }) {
           })}
         </nav>
 
-        <div className="p4p-sidebar-promo">
-          <div className="p4p-sidebar-promo-stack">
-            <img
-              src={moreThanJustPlay}
-              alt="More Than Just Play"
-              className="p4p-sidebar-promo-image"
-            />
+        {route !== 'supervisor' && (
+          <div className="p4p-sidebar-promo">
+            <div className="p4p-sidebar-promo-stack">
+              <img
+                src={moreThanJustPlay}
+                alt="More Than Just Play"
+                className="p4p-sidebar-promo-image"
+              />
 
-            <button type="button" className="p4p-promo-button">
-              <span>Play Now</span>
-              <span className="p4p-promo-arrow">→</span>
-            </button>
+              <button type="button" className="p4p-promo-button">
+                <span>Play Now</span>
+                <span className="p4p-promo-arrow">→</span>
+              </button>
+            </div>
           </div>
-        </div>
+        )}
 
         <button type="button" className="sidebar-logout" onClick={handleLogout}>
           <span className="logout-icon"><Icon name="logout" /></span>
