@@ -38,7 +38,7 @@ function formatActivityDate(value) {
 }
 
 function CustomerOverview({ application, usage }) {
-  const tier = usage.reward_tier || 'Bronze'
+  const tier = usage?.reward_tier || 'Bronze'
   const profileName = application?.name || 'Ava Johnson'
   const avatarText = profileName.split(' ').map((part) => part[0]).slice(0, 2).join('') || 'AJ'
 
@@ -52,22 +52,22 @@ function CustomerOverview({ application, usage }) {
           <div className="profile-header-copy">
             <h3>{profileName}</h3>
             <span className="gold-badge">Gold Member</span>
-            <span className="profile-subtext">Player ID: {application.playerId || 'P4P-2048'}</span>
+            <span className="profile-subtext">Player ID: {application?.playerId || 'P4P-2048'}</span>
           </div>
         </div>
 
         <div className="profile-detail-list">
           <div className="profile-detail-item">
             <span className="detail-icon"><Icon name="mail" /></span>
-            <strong>{application.email || 'ava.johnson@example.com'}</strong>
+            <strong>{application?.email || 'ava.johnson@example.com'}</strong>
           </div>
           <div className="profile-detail-item">
             <span className="detail-icon"><Icon name="phone" /></span>
-            <strong>{application.phone || '+1 (919) 555-0147'}</strong>
+            <strong>{application?.phone || '+1 (919) 555-0147'}</strong>
           </div>
           <div className="profile-detail-item">
             <span className="detail-icon"><Icon name="calendar" /></span>
-            <strong>{application.joined || 'June 12, 2024'}</strong>
+            <strong>{application?.joined || 'June 12, 2024'}</strong>
           </div>
           <div className="profile-detail-item">
             <span className="detail-icon"><Icon name="info" /></span>
@@ -282,7 +282,7 @@ export function CustomerDashboard() {
     const token = localStorage.getItem('p4p_customer_token')
 
     if (!token) {
-      navigate('/login')
+      setState({ loading: false, error: null, status: 'approved', application: null, usage: null, transactions: [] })
       return
     }
 
