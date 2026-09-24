@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import * as XLSX from 'xlsx'
 import roles, { tierMap } from '../../data/roles'
 import config from '../../config'
+import welcomeBannerArt from '../../assets/play4perks-banner-art.png'
 import { AppLayout } from '../layout/AppLayout'
 import { Icon, StatCard, StatusBadge } from '../ui/Icon'
 
@@ -607,6 +608,9 @@ export function SupervisorDashboard() {
             <h1>PayFe Supervisor</h1>
             <p>Review applications, audits and customer data.</p>
           </div>
+        </div>
+        <div className="supervisor-banner-art" aria-hidden="true">
+          <img src={welcomeBannerArt} alt="" />
         </div>
       </div>
       <div className="summary-grid five-up supervisor-stats">

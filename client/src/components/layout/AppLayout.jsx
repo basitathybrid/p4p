@@ -223,7 +223,15 @@ export function AppLayout({ route, children }) {
           })}
         </nav>
 
-        {route !== 'supervisor' && (
+        {route === 'supervisor' ? (
+          <div className="p4p-sidebar-promo p4p-sidebar-promo-image-only">
+            <img
+              src={moreThanJustPlay}
+              alt="More Than Just Play"
+              className="p4p-sidebar-promo-image"
+            />
+          </div>
+        ) : (
           <div className="p4p-sidebar-promo">
             <div className="p4p-sidebar-promo-stack">
               <img
