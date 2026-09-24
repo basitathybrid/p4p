@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import roles from '../../data/roles'
+import welcomeBannerArt from '../../assets/play4perks-banner-art.png'
 import { AppLayout } from '../layout/AppLayout'
 import { Icon, StatusBadge, TierBadge } from '../ui/Icon'
 
@@ -31,17 +33,24 @@ function BasicUserTable() {
                 <th>Lifetime Volume</th>
                 <th>Transactions</th>
                 <th>Last Activity</th>
+                <th aria-label="Actions" />
               </tr>
             </thead>
             <tbody>
               {roles.basic.customers.map((row) => (
                 <tr key={row[0]}>
-                  <td>{row[0]}</td>
+                  <td>
+                    <span className="customer-name-cell">
+                      <span className="customer-table-avatar">{row[0].split(' ').map((part) => part[0]).join('')}</span>
+                      {row[0]}
+                    </span>
+                  </td>
                   <td>{row[1]}</td>
                   <td><TierBadge label={row[2]} /></td>
                   <td>{row[3]}</td>
                   <td>{row[4]}</td>
                   <td>{row[5]}</td>
+                  <td><button type="button" className="row-action" aria-label={`View ${row[0]} details`}>⋮</button></td>
                 </tr>
               ))}
             </tbody>
@@ -116,14 +125,43 @@ function BasicUserTable() {
 }
 
 export function BasicUserDashboard() {
+  const [profileImage, setProfileImage] = useState(() => localStorage.getItem('p4p_basic_profile_image') || '')
+
+  const handleProfileImageChange = (event) => {
+    const [file] = event.target.files || []
+    if (!file || !file.type.startsWith('image/')) return
+
+    const reader = new FileReader()
+    reader.onload = () => {
+      const nextImage = String(reader.result || '')
+      setProfileImage(nextImage)
+      try {
+        localStorage.setItem('p4p_basic_profile_image', nextImage)
+      } catch {
+        // The preview still works for the current session if browser storage is full.
+      }
+    }
+    reader.readAsDataURL(file)
+  }
+
   return (
     <>
       <div className="page-header compact">
-        <div>
-          <h1>PayFe Basic User - View Only</h1>
-          <p>View approved customer profiles, rewards tiers, and transaction activity.</p>
+        <div className="basic-banner-copy">
+          <label className="basic-profile-upload" title="Upload profile picture">
+            <input type="file" accept="image/*" onChange={handleProfileImageChange} />
+            {profileImage ? <img src={profileImage} alt="Basic user profile" /> : <Icon name="user" />}
+            <span className="basic-profile-upload-action" aria-hidden="true">+</span>
+          </label>
+          <div className="basic-banner-text">
+            <span className="basic-banner-kicker">Read-only workspace</span>
+            <h1>PayFe Basic User</h1>
+            <p>View approved customer profiles, rewards tiers, and transaction activity.</p>
+          </div>
         </div>
-        <button className="view-only-link">View Only</button>
+        <div className="basic-banner-art" aria-hidden="true">
+          <img src={welcomeBannerArt} alt="" />
+        </div>
       </div>
       <div className="summary-grid five-up">
         {roles.basic.stats.map((card, index) => (

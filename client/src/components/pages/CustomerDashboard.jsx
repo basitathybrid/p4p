@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import roles from '../../data/roles'
 import config from '../../config'
-import play4PerksLogo from '../../assets/play4perks-logo.png'
 import welcomeBannerArt from '../../assets/play4perks-banner-art.png'
 import promoGiftBox from '../../assets/more-than-just-play.png'
 import goldenDragonImg from '../../assets/games/golden-dragon.png'
@@ -164,6 +163,29 @@ function CustomerOverview({ application, usage }) {
 
 function CustomerApprovedDashboard({ application, usage, transactions }) {
   const accountName = application?.name || 'Ava Johnson'
+  const profileImageKey = `p4p_customer_profile_image_${application?.phone || 'demo'}`
+  const [profileImage, setProfileImage] = useState('')
+
+  useEffect(() => {
+    setProfileImage(localStorage.getItem(profileImageKey) || '')
+  }, [profileImageKey])
+
+  const handleProfileImageChange = (event) => {
+    const [file] = event.target.files || []
+    if (!file || !file.type.startsWith('image/')) return
+
+    const reader = new FileReader()
+    reader.onload = () => {
+      const nextImage = String(reader.result || '')
+      setProfileImage(nextImage)
+      try {
+        localStorage.setItem(profileImageKey, nextImage)
+      } catch {
+        // The preview still works for the current session if browser storage is full.
+      }
+    }
+    reader.readAsDataURL(file)
+  }
 
   const dashboardStats = roles.customer.metrics.map((metric) => ({
     ...metric,
@@ -177,11 +199,13 @@ function CustomerApprovedDashboard({ application, usage, transactions }) {
     <div className="customer-dashboard-shell">
       <div className="dashboard-inner">
         <section className="welcome-banner">
-          <div className="welcome-brand" aria-hidden="true">
-            <div className="welcome-brand-mark">
-              <img src={play4PerksLogo} alt="Play4Perks" />
-            </div>
-            <div className="welcome-brand-tagline">Play More Earn More</div>
+          <div className="welcome-brand">
+            <label className="welcome-profile-upload" title="Upload profile picture">
+              <input type="file" accept="image/*" onChange={handleProfileImageChange} />
+              {profileImage ? <img src={profileImage} alt={`${accountName}'s profile`} /> : <Icon name="user" />}
+              <span className="welcome-profile-upload-action" aria-hidden="true">+</span>
+            </label>
+            <div className="welcome-brand-tagline">Profile Picture</div>
           </div>
 
           <div className="welcome-copy">

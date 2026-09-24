@@ -179,7 +179,7 @@ export function AppLayout({ route, children }) {
   }
 
   return (
-    <div className={`app-shell ${route === 'supervisor' ? 'supervisor-shell' : ''}`}>
+    <div className={`app-shell ${route === 'supervisor' ? 'supervisor-shell' : route === 'basic' ? 'basic-shell' : ''}`}>
       <aside className="sidebar">
         <div className="brand-block">
           <div className="brand-stack">
@@ -240,10 +240,12 @@ export function AppLayout({ route, children }) {
                 className="p4p-sidebar-promo-image"
               />
 
-              <button type="button" className="p4p-promo-button">
-                <span>Play Now</span>
-                <span className="p4p-promo-arrow">→</span>
-              </button>
+              {route !== 'basic' && (
+                <button type="button" className="p4p-promo-button">
+                  <span>Play Now</span>
+                  <span className="p4p-promo-arrow">→</span>
+                </button>
+              )}
             </div>
           </div>
         )}

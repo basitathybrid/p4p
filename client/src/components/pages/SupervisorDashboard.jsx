@@ -576,6 +576,25 @@ function SupervisorTable({ onStatusCountsChange }) {
 
 export function SupervisorDashboard() {
   const [statusCounts, setStatusCounts] = useState({ submitted: 0, pendingReview: 0, decided: 0, active: 0 })
+  const [profileImage, setProfileImage] = useState(() => localStorage.getItem('p4p_supervisor_profile_image') || '')
+
+  const handleProfileImageChange = (event) => {
+    const [file] = event.target.files || []
+    if (!file || !file.type.startsWith('image/')) return
+
+    const reader = new FileReader()
+    reader.onload = () => {
+      const nextImage = String(reader.result || '')
+      setProfileImage(nextImage)
+      try {
+        localStorage.setItem('p4p_supervisor_profile_image', nextImage)
+      } catch {
+        // The preview still works for the current session if browser storage is full.
+      }
+    }
+    reader.readAsDataURL(file)
+  }
+
   const stats = [
     {
       ...roles.supervisor.stats[0],
@@ -600,9 +619,11 @@ export function SupervisorDashboard() {
     <>
       <div className="page-header compact">
         <div className="page-header-title-wrap">
-          <div className="page-header-icon" aria-hidden="true">
-            <Icon name="trophy" />
-          </div>
+          <label className="supervisor-profile-upload" title="Upload profile picture">
+            <input type="file" accept="image/*" onChange={handleProfileImageChange} />
+            {profileImage ? <img src={profileImage} alt="Supervisor profile" /> : <Icon name="user" />}
+            <span className="supervisor-profile-upload-action" aria-hidden="true">+</span>
+          </label>
           <div className="page-header-copy">
             <span className="page-header-kicker">Executive oversight</span>
             <h1>PayFe Supervisor</h1>
