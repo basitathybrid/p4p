@@ -49,3 +49,17 @@ test('stores, opens, and removes unique supervisor image keys', async () => {
   assert.equal(await openProfileImage(firstKey), null);
   await removeProfileImage(secondKey);
 });
+
+test('isolates customer and basic-user pictures without exposing customer phone numbers', async () => {
+  const image = Buffer.from('89504e470d0a1a0a', 'hex');
+  const customerKey = await storeProfileImage('+19195550147', 'image/png', image, 'customers');
+  const basicKey = await storeProfileImage(12, 'image/png', image, 'basic_users');
+
+  assert.match(customerKey, /^customers\/[0-9a-f]{64}\/[0-9a-f-]+\.png$/);
+  assert.doesNotMatch(customerKey, /19195550147/);
+  assert.match(basicKey, /^basic_users\/12\/[0-9a-f-]+\.png$/);
+  assert.equal((await openProfileImage(customerKey)).contentType, 'image/png');
+  await removeProfileImage(customerKey);
+  await removeProfileImage(basicKey);
+  await assert.rejects(storeProfileImage(12, 'image/png', image, '../other'), { code: 'INVALID_ACCOUNT_TYPE' });
+});

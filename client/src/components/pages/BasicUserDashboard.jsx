@@ -1,5 +1,5 @@
-import { useState } from 'react'
 import roles from '../../data/roles'
+import { useProfilePicture } from '../../useProfilePicture'
 import welcomeBannerArt from '../../assets/play4perks-banner-art.png'
 import { AppLayout } from '../layout/AppLayout'
 import { Icon, StatusBadge, TierBadge } from '../ui/Icon'
@@ -125,23 +125,12 @@ function BasicUserTable() {
 }
 
 export function BasicUserDashboard() {
-  const [profileImage, setProfileImage] = useState(() => localStorage.getItem('p4p_basic_profile_image') || '')
+  const { profileImage, uploadProfilePicture, uploading, error: profileImageError } = useProfilePicture('basic')
 
   const handleProfileImageChange = (event) => {
     const [file] = event.target.files || []
-    if (!file || !file.type.startsWith('image/')) return
-
-    const reader = new FileReader()
-    reader.onload = () => {
-      const nextImage = String(reader.result || '')
-      setProfileImage(nextImage)
-      try {
-        localStorage.setItem('p4p_basic_profile_image', nextImage)
-      } catch {
-        // The preview still works for the current session if browser storage is full.
-      }
-    }
-    reader.readAsDataURL(file)
+    uploadProfilePicture(file)
+    event.target.value = ''
   }
 
   return (
@@ -149,7 +138,7 @@ export function BasicUserDashboard() {
       <div className="page-header compact">
         <div className="basic-banner-copy">
           <label className="basic-profile-upload" title="Upload profile picture">
-            <input type="file" accept="image/*" onChange={handleProfileImageChange} />
+            <input type="file" accept="image/jpeg,image/png,image/webp" disabled={uploading} onChange={handleProfileImageChange} />
             {profileImage ? <img src={profileImage} alt="Basic user profile" /> : <Icon name="user" />}
             <span className="basic-profile-upload-action" aria-hidden="true">+</span>
           </label>
@@ -157,6 +146,7 @@ export function BasicUserDashboard() {
             <span className="basic-banner-kicker">Read-only workspace</span>
             <h1>PayFe Basic User</h1>
             <p>View approved customer profiles, rewards tiers, and transaction activity.</p>
+            {profileImageError && <span className="profile-photo-error" role="alert">{profileImageError}</span>}
           </div>
         </div>
         <div className="basic-banner-art" aria-hidden="true">

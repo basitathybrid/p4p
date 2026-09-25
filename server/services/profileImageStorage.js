@@ -60,9 +60,17 @@ function resolveStoragePath(key) {
   return resolved;
 }
 
-async function storeProfileImage(supervisorId, contentType, buffer) {
+async function storeProfileImage(ownerId, contentType, buffer, accountType = 'supervisors') {
   const imageType = validateImage(contentType, buffer);
-  const key = `supervisors/${String(supervisorId)}/${crypto.randomUUID()}.${imageType.extension}`;
+  if (!['supervisors', 'customers', 'basic_users'].includes(accountType)) {
+    const error = new Error('Invalid profile image account type.');
+    error.code = 'INVALID_ACCOUNT_TYPE';
+    throw error;
+  }
+  const ownerKey = accountType === 'customers'
+    ? crypto.createHash('sha256').update(String(ownerId)).digest('hex')
+    : String(ownerId);
+  const key = `${accountType}/${ownerKey}/${crypto.randomUUID()}.${imageType.extension}`;
   const filePath = resolveStoragePath(key);
 
   await fs.mkdir(path.dirname(filePath), { recursive: true });

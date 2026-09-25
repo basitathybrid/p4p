@@ -7,7 +7,7 @@ const db = require('./db');
 const { migrateDatabase } = require('./database/migrate');
 const { startOtpVerification, checkOtpVerification, sendReviewDecisionSms } = require('./services/twilioService');
 const { sendTemporaryPasswordEmail } = require('./services/emailService');
-const { signCustomerToken, signSupervisorToken, signBasicUserToken, requireCustomerAuth, requireSupervisorAuth, requireAuth } = require('./auth');
+const { signCustomerToken, signSupervisorToken, signBasicUserToken, requireCustomerAuth, requireSupervisorAuth, requireBasicUserAuth, requireAuth } = require('./auth');
 const { importTransactions } = require('./transactionService');
 const { TIER_RANK, getTierThresholds, tierForVolume, validateThresholds } = require('./tierService');
 const {
@@ -507,6 +507,83 @@ app.delete('/api/supervisor/profile-picture', requireSupervisorAuth, async (req,
   }
 });
 
+function registerAccountProfilePictureRoutes(route, auth, table, accountType, getOwnerId) {
+  const getImageKey = async (ownerId) => {
+    const [rows] = await db.query(
+      `SELECT profile_image_key FROM ${table} WHERE ${table === 'customers' ? 'phone' : 'id'} = ?${table === 'basic_users' ? ' AND is_active = 1' : ''} LIMIT 1`,
+      [ownerId],
+    );
+    return rows[0];
+  };
+
+  app.get(route, auth, async (req, res, next) => {
+    try {
+      const account = await getImageKey(getOwnerId(req));
+      if (!account?.profile_image_key) {
+        return res.status(404).json({ success: false, code: 'NOT_FOUND', message: 'Profile picture not found.' });
+      }
+      const image = await openProfileImage(account.profile_image_key);
+      if (!image) {
+        return res.status(404).json({ success: false, code: 'NOT_FOUND', message: 'Profile picture not found.' });
+      }
+      res.type(image.contentType);
+      res.set('Cache-Control', 'private, no-store');
+      return res.sendFile(image.filePath);
+    } catch (error) {
+      return next(error);
+    }
+  });
+
+  app.post(route, auth, profileImageBodyParser, async (req, res) => {
+    let newImageKey;
+    try {
+      const ownerId = getOwnerId(req);
+      const account = await getImageKey(ownerId);
+      if (!account) {
+        return res.status(404).json({ success: false, code: 'NOT_FOUND', message: 'Account not found.' });
+      }
+      newImageKey = await storeProfileImage(ownerId, req.headers['content-type'], req.body, accountType);
+      const [result] = await db.query(
+        `UPDATE ${table} SET profile_image_key = ? WHERE ${table === 'customers' ? 'phone' : 'id'} = ?${table === 'basic_users' ? ' AND is_active = 1' : ''}`,
+        [newImageKey, ownerId],
+      );
+      if (!result.affectedRows) {
+        const error = new Error('Account not found.');
+        error.code = 'NOT_FOUND';
+        throw error;
+      }
+      if (account.profile_image_key) {
+        try {
+          await removeProfileImage(account.profile_image_key);
+        } catch (error) {
+          console.error('remove previous profile picture failed:', error);
+        }
+      }
+      return res.json({ success: true });
+    } catch (error) {
+      if (newImageKey) {
+        try {
+          await removeProfileImage(newImageKey);
+        } catch (cleanupError) {
+          console.error('remove failed profile picture upload failed:', cleanupError);
+        }
+      }
+      const statusCode = {
+        NOT_FOUND: 404,
+        UNSUPPORTED_IMAGE_TYPE: 415,
+        EMPTY_IMAGE: 400,
+        IMAGE_TOO_LARGE: 413,
+        INVALID_IMAGE_DATA: 400,
+      }[error.code] || 500;
+      if (statusCode === 500) console.error('update profile picture failed:', error);
+      return res.status(statusCode).json({ success: false, code: error.code || 'SERVER_ERROR', message: statusCode === 500 ? 'Unable to update profile picture.' : error.message });
+    }
+  });
+}
+
+registerAccountProfilePictureRoutes('/api/customer/profile-picture', requireCustomerAuth, 'customers', 'customers', (req) => req.customerPhone);
+registerAccountProfilePictureRoutes('/api/basic/profile-picture', requireBasicUserAuth, 'basic_users', 'basic_users', (req) => req.user.id);
+
 app.get('/api/customer/session', requireCustomerAuth, async (req, res) => {
   try {
     const application = await getApplication(req.customerPhone);
@@ -752,7 +829,11 @@ async function startServer() {
   });
 }
 
-startServer().catch((error) => {
-  console.error('Database migration failed. Server was not started.', error);
-  process.exitCode = 1;
-});
+if (require.main === module) {
+  startServer().catch((error) => {
+    console.error('Database migration failed. Server was not started.', error);
+    process.exitCode = 1;
+  });
+}
+
+module.exports = { app, startServer };
