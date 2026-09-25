@@ -3,6 +3,7 @@ import { NavLink, useNavigate } from 'react-router-dom'
 import { Icon } from '../ui/Icon'
 import roles from '../../data/roles'
 import config from '../../config'
+import { useProfilePicture } from '../../useProfilePicture'
 import play4PerksLogo from '../../assets/play4perks-logo.png'
 import moreThanJustPlay from '../../assets/more-than-just-play.png'
 
@@ -35,6 +36,7 @@ export function AppLayout({ route, children }) {
     ...currentRole.user,
     email: currentRole.user.email || 'ava.johnson@example.com',
   })
+  const { profileImage: toolbarProfileImage } = useProfilePicture(route)
   const [showChangePassword, setShowChangePassword] = useState(false)
   const [passwordForm, setPasswordForm] = useState({ oldPassword: '', newPassword: '', confirmPassword: '' })
   const [passwordFieldErrors, setPasswordFieldErrors] = useState({})
@@ -269,7 +271,11 @@ export function AppLayout({ route, children }) {
             </span>
             <div className="toolbar-user-menu" ref={menuRef}>
               <button className="toolbar-user" onClick={() => setMenuOpen((open) => !open)}>
-                <div className="toolbar-avatar">{displayUser.name.split(' ').map((part) => part[0]).slice(0, 2).join('')}</div>
+                <div className="toolbar-avatar">
+                  {toolbarProfileImage
+                    ? <img src={toolbarProfileImage} alt="" />
+                    : displayUser.name.split(' ').map((part) => part[0]).slice(0, 2).join('')}
+                </div>
                 <div className="toolbar-user-text">
                   <div className="toolbar-name">{displayUser.name}</div>
                   <div className="toolbar-role">{displayUser.email || 'ava.johnson@example.com'}</div>
@@ -291,9 +297,9 @@ export function AppLayout({ route, children }) {
 
       {showChangePassword && (
         <div className="modal-overlay" onClick={closeChangePassword}>
-          <div className="modal-card" onClick={(event) => event.stopPropagation()}>
+          <div className="modal-card password-modal" role="dialog" aria-modal="true" aria-labelledby="password-modal-title" onClick={(event) => event.stopPropagation()}>
             <div className="modal-header">
-              <h3>Change Password</h3>
+              <h3 id="password-modal-title">Change Password</h3>
               <button type="button" className="modal-close" aria-label="Close" onClick={closeChangePassword}>
                 <Icon name="x" />
               </button>

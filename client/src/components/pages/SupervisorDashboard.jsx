@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import * as XLSX from 'xlsx'
 import roles, { tierMap } from '../../data/roles'
 import config from '../../config'
+import { useProfilePicture } from '../../useProfilePicture'
 import welcomeBannerArt from '../../assets/play4perks-banner-art.png'
 import { AppLayout } from '../layout/AppLayout'
 import { Icon, StatCard, StatusBadge, TierBadge } from '../ui/Icon'
@@ -682,23 +683,12 @@ function SupervisorTable({ onStatusCountsChange }) {
 
 export function SupervisorDashboard() {
   const [statusCounts, setStatusCounts] = useState({ submitted: 0, pendingReview: 0, decided: 0, active: 0 })
-  const [profileImage, setProfileImage] = useState(() => localStorage.getItem('p4p_supervisor_profile_image') || '')
+  const { profileImage, uploadProfilePicture, uploading, error: profileImageError } = useProfilePicture('supervisor')
 
   const handleProfileImageChange = (event) => {
     const [file] = event.target.files || []
-    if (!file || !file.type.startsWith('image/')) return
-
-    const reader = new FileReader()
-    reader.onload = () => {
-      const nextImage = String(reader.result || '')
-      setProfileImage(nextImage)
-      try {
-        localStorage.setItem('p4p_supervisor_profile_image', nextImage)
-      } catch {
-        // The preview still works for the current session if browser storage is full.
-      }
-    }
-    reader.readAsDataURL(file)
+    uploadProfilePicture(file)
+    event.target.value = ''
   }
 
   const stats = [
@@ -726,7 +716,7 @@ export function SupervisorDashboard() {
       <div className="page-header compact">
         <div className="page-header-title-wrap">
           <label className="supervisor-profile-upload" title="Upload profile picture">
-            <input type="file" accept="image/*" onChange={handleProfileImageChange} />
+            <input type="file" accept="image/jpeg,image/png,image/webp" disabled={uploading} onChange={handleProfileImageChange} />
             {profileImage ? <img src={profileImage} alt="Supervisor profile" /> : <Icon name="user" />}
             <span className="supervisor-profile-upload-action" aria-hidden="true">+</span>
           </label>
@@ -734,6 +724,7 @@ export function SupervisorDashboard() {
             <span className="page-header-kicker">Executive oversight</span>
             <h1>PayFe Supervisor</h1>
             <p>Review applications, audits and customer data.</p>
+            {profileImageError && <span className="profile-photo-error" role="alert">{profileImageError}</span>}
           </div>
         </div>
         <div className="supervisor-banner-art" aria-hidden="true">

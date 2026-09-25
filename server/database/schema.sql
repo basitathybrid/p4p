@@ -65,6 +65,7 @@ DEALLOCATE PREPARE application_player_id_stmt;
 CREATE TABLE IF NOT EXISTS customers (
   phone         VARCHAR(20) PRIMARY KEY,
   password_hash VARCHAR(255) NOT NULL,
+  profile_image_key VARCHAR(512) NULL,
   created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT fk_customers_application FOREIGN KEY (phone) REFERENCES applications(phone)
 );
@@ -178,6 +179,7 @@ CREATE TABLE IF NOT EXISTS basic_users (
   password_hash VARCHAR(255) NOT NULL,
   role          VARCHAR(50) NOT NULL DEFAULT 'basic',
   is_active     TINYINT(1) NOT NULL DEFAULT 1,
+  profile_image_key VARCHAR(512) NULL,
   created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );

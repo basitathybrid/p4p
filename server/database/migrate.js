@@ -60,6 +60,21 @@ const MIGRATIONS = [
       `);
     },
   },
+  {
+    id: '004_customer_and_basic_profile_images',
+    async up(conn) {
+      for (const table of ['customers', 'basic_users']) {
+        const [columns] = await conn.query(
+          `SELECT COUNT(*) AS count FROM information_schema.columns
+           WHERE table_schema = DATABASE() AND table_name = ? AND column_name = 'profile_image_key'`,
+          [table],
+        );
+        if (!columns[0].count) {
+          await conn.query(`ALTER TABLE ${table} ADD COLUMN profile_image_key VARCHAR(512) NULL`);
+        }
+      }
+    },
+  },
 ];
 
 async function migrateDatabase() {

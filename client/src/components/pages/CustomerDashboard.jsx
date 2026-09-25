@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import roles from '../../data/roles'
 import config from '../../config'
+import { useProfilePicture } from '../../useProfilePicture'
 import welcomeBannerArt from '../../assets/play4perks-banner-art.png'
 import promoGiftBox from '../../assets/more-than-just-play.png'
 import goldenDragonImg from '../../assets/games/golden-dragon.png'
@@ -37,7 +38,7 @@ function formatActivityDate(value) {
     })}`
 }
 
-function CustomerOverview({ application, usage }) {
+function CustomerOverview({ application, usage, profileImage }) {
   const tier = usage?.reward_tier || 'Bronze'
   const lifetimeVolume = Number(usage?.lifetime_transaction_volume || 0)
   const thresholds = usage?.tier_thresholds || []
@@ -62,7 +63,9 @@ function CustomerOverview({ application, usage }) {
 
         <div className="profile-card-header">
           <div className="profile-badge-wrap">
-            <div className="profile-avatar">{avatarText}</div>
+            <div className="profile-avatar">
+              {profileImage ? <img src={profileImage} alt={`${profileName}'s profile`} /> : avatarText}
+            </div>
             <span className="profile-online-dot" aria-label="Online" />
           </div>
           <div className="profile-header-copy">
@@ -184,27 +187,13 @@ function CustomerOverview({ application, usage }) {
 function CustomerApprovedDashboard({ application, usage, transactions }) {
   const accountName = application?.name || 'Ava Johnson'
   const profileImageKey = `p4p_customer_profile_image_${application?.phone || 'demo'}`
-  const [profileImage, setProfileImage] = useState('')
-
-  useEffect(() => {
-    setProfileImage(localStorage.getItem(profileImageKey) || '')
-  }, [profileImageKey])
+  const { profileImage, uploadProfilePicture, uploading, error: profileImageError } = useProfilePicture('customer', profileImageKey)
+  const profileInputRef = useRef(null)
 
   const handleProfileImageChange = (event) => {
     const [file] = event.target.files || []
-    if (!file || !file.type.startsWith('image/')) return
-
-    const reader = new FileReader()
-    reader.onload = () => {
-      const nextImage = String(reader.result || '')
-      setProfileImage(nextImage)
-      try {
-        localStorage.setItem(profileImageKey, nextImage)
-      } catch {
-        // The preview still works for the current session if browser storage is full.
-      }
-    }
-    reader.readAsDataURL(file)
+    uploadProfilePicture(file)
+    event.target.value = ''
   }
 
   const dashboardStats = roles.customer.metrics.map((metric) => ({
@@ -221,7 +210,7 @@ function CustomerApprovedDashboard({ application, usage, transactions }) {
         <section className="welcome-banner">
           <div className="welcome-brand">
             <label className="welcome-profile-upload" title="Upload profile picture">
-              <input type="file" accept="image/*" onChange={handleProfileImageChange} />
+              <input ref={profileInputRef} type="file" accept="image/jpeg,image/png,image/webp" disabled={uploading} onChange={handleProfileImageChange} />
               {profileImage ? <img src={profileImage} alt={`${accountName}'s profile`} /> : <Icon name="user" />}
               <span className="welcome-profile-upload-action" aria-hidden="true">+</span>
             </label>
@@ -241,7 +230,7 @@ function CustomerApprovedDashboard({ application, usage, transactions }) {
         </section>
 
         <section className="top-cards-grid">
-          <CustomerOverview application={application} usage={usage} />
+          <CustomerOverview application={application} usage={usage} profileImage={profileImage} />
         </section>
 
         <section className="dashboard-stat-grid">
@@ -313,12 +302,20 @@ function CustomerApprovedDashboard({ application, usage, transactions }) {
 
         <section className="bottom-cta-row">
           <div className="panel-card cta-banner profile-cta">
-            <div className="cta-mark"><Icon name="edit" /></div>
-            <div className="cta-copy">
-              <h3>Complete Your Profile</h3>
-              <p>Keep your profile up to date for a safer and smoother experience.</p>
+            <div className="cta-mark">
+              {profileImage ? <img src={profileImage} alt="" /> : <Icon name="edit" />}
             </div>
-            <button type="button" className="cta-action">Update Profile →</button>
+            <div className="cta-copy">
+              <h3>{profileImage ? 'Profile Photo Updated!' : 'Complete Your Profile'}</h3>
+              <p>{profileImage
+                ? 'Your new profile picture has been uploaded successfully.'
+                : 'Keep your profile up to date for a safer and smoother experience.'}</p>
+              {profileImage && <span className="profile-photo-status"><Icon name="check" /> Profile photo saved</span>}
+              {profileImageError && <span className="profile-photo-error" role="alert">{profileImageError}</span>}
+            </div>
+            <button type="button" className="cta-action" disabled={uploading} onClick={() => profileInputRef.current?.click()}>
+              {uploading ? 'Saving...' : profileImage ? 'Change Photo' : 'Update Profile'} →
+            </button>
           </div>
 
           <div className="panel-card cta-banner referral-cta">
