@@ -174,10 +174,10 @@ async function importTransactions(csv) {
       );
 
       const [usageRows] = await conn.query(
-        'SELECT lifetime_transaction_volume, tier_override FROM customer_usage WHERE phone = ?',
+        'SELECT lifetime_transaction_volume FROM customer_usage WHERE phone = ?',
         [phone]
       );
-      if (usageRows[0] && !usageRows[0].tier_override) {
+      if (usageRows[0]) {
         await conn.query(
           'UPDATE customer_usage SET reward_tier = ? WHERE phone = ?',
           [calculateTier(usageRows[0].lifetime_transaction_volume, thresholds), phone]

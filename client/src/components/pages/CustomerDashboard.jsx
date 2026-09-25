@@ -39,6 +39,13 @@ function formatActivityDate(value) {
 
 function CustomerOverview({ application, usage }) {
   const tier = usage?.reward_tier || 'Bronze'
+  const lifetimeVolume = Number(usage?.lifetime_transaction_volume || 0)
+  const thresholds = usage?.tier_thresholds || []
+  const nextTier = thresholds.find((threshold) => Number(threshold.minimum) > lifetimeVolume)
+  const currentTierMinimum = Number(thresholds.find((threshold) => threshold.name === (usage?.original_reward_tier || tier))?.minimum || 0)
+  const progressPercent = nextTier
+    ? Math.min(100, Math.max(0, ((lifetimeVolume - currentTierMinimum) / (Number(nextTier.minimum) - currentTierMinimum)) * 100))
+    : 100
   const profileName = application?.name || 'Ava Johnson'
   const avatarText = profileName.split(' ').map((part) => part[0]).slice(0, 2).join('') || 'AJ'
 
@@ -60,7 +67,7 @@ function CustomerOverview({ application, usage }) {
           </div>
           <div className="profile-header-copy">
             <h3>{profileName}</h3>
-            <span className="gold-badge"><Icon name="star" /> Gold Member</span>
+            <span className="gold-badge"><Icon name="star" /> {tier} Member</span>
             <span className="profile-subtext">Player ID: {application?.playerId || 'P4P-2048'}</span>
           </div>
         </div>
@@ -140,9 +147,22 @@ function CustomerOverview({ application, usage }) {
         <div className="tier-graphic"><Icon name="star" /></div>
         <div className="tier-title">{tier}</div>
         <p>You&apos;re on the {tier} Tier!</p>
-        <div className="tier-progress"><span /></div>
-        <div className="tier-points">0 / 0 points</div>
-        <small>Earn 0 more points to reach Gold Tier</small>
+        {!usage?.tier_override && (
+          <>
+            <div className="tier-progress"><span style={{ width: `${progressPercent}%` }} /></div>
+            {nextTier ? (
+              <>
+                <div className="tier-points">{formatCurrency(lifetimeVolume)} / {formatCurrency(nextTier.minimum)}</div>
+                <small>{formatCurrency(Math.max(0, Number(nextTier.minimum) - lifetimeVolume))} more in lifetime volume to reach {nextTier.name} Tier</small>
+              </>
+            ) : (
+              <>
+                <div className="tier-points">{formatCurrency(lifetimeVolume)} lifetime volume</div>
+                <small>Top tier reached</small>
+              </>
+            )}
+          </>
+        )}
       </div>
 
       <div className="promo-card panel-card">
@@ -373,7 +393,7 @@ export function CustomerDashboard() {
           return
         }
 
-        setState({ loading: false, error: null, status: data.status, application: data.application, usage: data.usage, transactions: data.transactions || [] })
+        setState({ loading: false, error: null, status: data.status, application: data.application, usage: { ...data.usage, tier_thresholds: data.tierThresholds || [] }, transactions: data.transactions || [] })
       })
       .catch(() => {
         setState({ loading: false, error: 'Unable to load account status.', status: null, application: null, usage: null, transactions: [] })

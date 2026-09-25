@@ -34,6 +34,32 @@ const MIGRATIONS = [
       }
     },
   },
+  {
+    id: '002_tier_override_supervisor_name',
+    async up(conn) {
+      const [columns] = await conn.query(
+        `SELECT COUNT(*) AS count FROM information_schema.columns
+         WHERE table_schema = DATABASE() AND table_name = 'customer_usage' AND column_name = 'tier_override_by'`
+      );
+      if (!columns[0].count) {
+        await conn.query('ALTER TABLE customer_usage ADD COLUMN tier_override_by VARCHAR(255) NULL AFTER tier_override');
+      }
+    },
+  },
+  {
+    id: '003_restore_automatic_tiers_for_overrides',
+    async up(conn) {
+      await conn.query(`
+        UPDATE customer_usage usage_row
+        SET reward_tier = COALESCE((
+          SELECT tier_name FROM tier_thresholds
+          WHERE minimum_volume <= usage_row.lifetime_transaction_volume
+          ORDER BY minimum_volume DESC
+          LIMIT 1
+        ), 'Bronze')
+      `);
+    },
+  },
 ];
 
 async function migrateDatabase() {

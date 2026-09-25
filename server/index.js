@@ -516,7 +516,10 @@ app.get('/api/customer/session', requireCustomerAuth, async (req, res) => {
     }
 
     const [usageRows] = await db.query(
-      `SELECT lifetime_transaction_volume, transaction_count, last_activity_at, reward_tier
+      `SELECT lifetime_transaction_volume, transaction_count, last_activity_at,
+              COALESCE(tier_override, reward_tier) AS reward_tier,
+              reward_tier AS original_reward_tier,
+              tier_override
        FROM customer_usage WHERE phone = ?`,
       [req.customerPhone]
     );
@@ -524,6 +527,9 @@ app.get('/api/customer/session', requireCustomerAuth, async (req, res) => {
       `SELECT transaction_datetime, transaction_type, transaction_amount, transaction_status, transaction_id
        FROM transactions WHERE phone = ? ORDER BY transaction_datetime DESC LIMIT 10`,
       [req.customerPhone]
+    );
+    const [tierThresholds] = await db.query(
+      'SELECT tier_name AS name, minimum_volume AS minimum FROM tier_thresholds ORDER BY minimum_volume ASC'
     );
 
     // Profile details are view-only for the customer; edits are made only by PayFe Operations via the review endpoints.
@@ -536,7 +542,10 @@ app.get('/api/customer/session', requireCustomerAuth, async (req, res) => {
         transaction_count: 0,
         last_activity_at: null,
         reward_tier: 'Bronze',
+        original_reward_tier: 'Bronze',
+        tier_override: null,
       },
+      tierThresholds,
       transactions: transactionRows,
     });
   } catch (error) {
@@ -553,6 +562,32 @@ app.get('/api/review/applications', requireSupervisorAuth, async (req, res) => {
   } catch (error) {
     console.error('list applications failed:', error);
     return res.status(500).json({ success: false, code: 'SERVER_ERROR', message: 'Unable to load applications.', error: error.message });
+  }
+});
+
+app.get('/api/basic/customers', requireAuth(), async (req, res) => {
+  if (req.user.role !== 'basic') {
+    return res.status(403).json({ success: false, code: 'FORBIDDEN', message: 'Access denied.' });
+  }
+
+  try {
+    const [customers] = await db.query(
+      `SELECT a.name, a.phone, a.email,
+              a.player_mobile_id AS playerMobileId, a.player_id AS playerId,
+              COALESCE(u.tier_override, u.reward_tier, 'Bronze') AS rewardTier,
+              COALESCE(u.reward_tier, 'Bronze') AS originalTier,
+              COALESCE(u.lifetime_transaction_volume, 0) AS lifetimeVolume,
+              COALESCE(u.transaction_count, 0) AS transactionCount,
+              u.last_activity_at AS lastActivityAt
+       FROM applications a
+       LEFT JOIN customer_usage u ON u.phone = a.phone
+       WHERE a.status = 'approved'
+       ORDER BY a.name ASC`
+    );
+    return res.status(200).json({ success: true, customers });
+  } catch (error) {
+    console.error('load basic user customers failed:', error);
+    return res.status(500).json({ success: false, code: 'SERVER_ERROR', message: 'Unable to load approved customers.' });
   }
 });
 
@@ -590,7 +625,7 @@ app.put('/api/tier-thresholds', requireAuth(), async (req, res) => {
     for (const tier of thresholds) {
       await conn.query('UPDATE tier_thresholds SET minimum_volume = ? WHERE tier_name = ?', [tier.minimum, tier.name]);
     }
-    const [usageRows] = await conn.query('SELECT phone, lifetime_transaction_volume FROM customer_usage WHERE tier_override IS NULL');
+    const [usageRows] = await conn.query('SELECT phone, lifetime_transaction_volume FROM customer_usage');
     for (const usage of usageRows) {
       await conn.query('UPDATE customer_usage SET reward_tier = ? WHERE phone = ?', [tierForVolume(usage.lifetime_transaction_volume, thresholds), usage.phone]);
     }
@@ -602,6 +637,27 @@ app.put('/api/tier-thresholds', requireAuth(), async (req, res) => {
     return res.status(500).json({ success: false, code: 'SERVER_ERROR', message: 'Unable to update tier thresholds.' });
   } finally {
     conn.release();
+  }
+});
+
+app.get('/api/review/customers/manual-tiers', requireSupervisorAuth, async (req, res) => {
+  try {
+    const [customers] = await db.query(
+            `SELECT a.name, a.phone, u.tier_override AS rewardTier,
+              u.reward_tier AS originalTier,
+              u.lifetime_transaction_volume AS lifetimeVolume,
+              u.transaction_count AS transactionCount,
+              u.last_activity_at AS lastActivityAt,
+              u.tier_override_by AS changedBy
+       FROM customer_usage u
+       JOIN applications a ON a.phone = u.phone
+       WHERE u.tier_override IS NOT NULL
+       ORDER BY u.updated_at DESC, a.name ASC`
+    );
+    return res.status(200).json({ success: true, customers });
+  } catch (error) {
+    console.error('load manually changed customer tiers failed:', error);
+    return res.status(500).json({ success: false, code: 'SERVER_ERROR', message: 'Unable to load manually changed customer tiers.' });
   }
 });
 
@@ -621,7 +677,10 @@ app.post('/api/review/customers/:phone/tier', requireSupervisorAuth, async (req,
       if (TIER_RANK[tier] >= TIER_RANK[automaticTier]) {
         return res.status(400).json({ success: false, code: 'NOT_A_DOWNGRADE', message: `Customer automatically qualifies for ${automaticTier} and can only be manually downgraded.` });
       }
-      await conn.query('UPDATE customer_usage SET reward_tier = ?, tier_override = ? WHERE phone = ?', [tier, tier, normalizePhone(req.params.phone)]);
+      await conn.query(
+        'UPDATE customer_usage SET tier_override = ?, tier_override_by = ? WHERE phone = ?',
+        [tier, req.user.name || req.user.username || 'Supervisor', normalizePhone(req.params.phone)]
+      );
       return res.status(200).json({ success: true, tier });
     } finally {
       conn.release();
@@ -629,6 +688,37 @@ app.post('/api/review/customers/:phone/tier', requireSupervisorAuth, async (req,
   } catch (error) {
     console.error('update customer tier failed:', error);
     return res.status(500).json({ success: false, code: 'SERVER_ERROR', message: 'Unable to update customer tier.' });
+  }
+});
+
+app.post('/api/review/customers/:phone/tier/revert', requireSupervisorAuth, async (req, res) => {
+  const phone = normalizePhone(req.params.phone);
+  const conn = await db.getConnection();
+  try {
+    await conn.beginTransaction();
+    const [usageRows] = await conn.query(
+      'SELECT lifetime_transaction_volume FROM customer_usage WHERE phone = ? AND tier_override IS NOT NULL',
+      [phone]
+    );
+    if (!usageRows[0]) {
+      await conn.rollback();
+      return res.status(404).json({ success: false, code: 'NO_TIER_OVERRIDE', message: 'No manual tier override exists for this customer.' });
+    }
+
+    const thresholds = await getTierThresholds(conn);
+    const tier = tierForVolume(usageRows[0].lifetime_transaction_volume, thresholds);
+    await conn.query(
+      'UPDATE customer_usage SET reward_tier = ?, tier_override = NULL, tier_override_by = NULL WHERE phone = ?',
+      [tier, phone]
+    );
+    await conn.commit();
+    return res.status(200).json({ success: true, tier });
+  } catch (error) {
+    await conn.rollback();
+    console.error('revert customer tier override failed:', error);
+    return res.status(500).json({ success: false, code: 'SERVER_ERROR', message: 'Unable to revert customer tier.' });
+  } finally {
+    conn.release();
   }
 });
 

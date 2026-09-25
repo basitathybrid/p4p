@@ -4,7 +4,7 @@ import roles, { tierMap } from '../../data/roles'
 import config from '../../config'
 import welcomeBannerArt from '../../assets/play4perks-banner-art.png'
 import { AppLayout } from '../layout/AppLayout'
-import { Icon, StatCard, StatusBadge } from '../ui/Icon'
+import { Icon, StatCard, StatusBadge, TierBadge } from '../ui/Icon'
 
 const SUPERVISOR_HEADERS = () => ({
   'Content-Type': 'application/json',
@@ -38,6 +38,16 @@ function formatPhone(phone) {
   if (phone.startsWith('+')) return phone
   const digits = phone.replace(/\D/g, '')
   return digits.length === 10 ? `+1${digits}` : `+${digits}`
+}
+
+function formatCurrency(value) {
+  return `$${Number(value || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+}
+
+function formatActivityDate(value) {
+  if (!value) return '—'
+  const date = new Date(value)
+  return `${date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' })} ${date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`
 }
 
 function formatSubmittedAt(value) {
@@ -97,8 +107,14 @@ function SupervisorTable({ onStatusCountsChange }) {
   const [statusCounts, setStatusCounts] = useState({ submitted: 0, pendingReview: 0, decided: 0, active: 0 })
   const [thresholds, setThresholds] = useState(DEFAULT_THRESHOLDS)
   const [savingThresholds, setSavingThresholds] = useState(false)
+  const [thresholdStatus, setThresholdStatus] = useState({ type: 'idle', message: '' })
   const [selectedTierCustomer, setSelectedTierCustomer] = useState('')
   const [selectedTier, setSelectedTier] = useState('Bronze')
+  const [tierStatus, setTierStatus] = useState({ type: 'idle', message: '' })
+  const [manualTierCustomers, setManualTierCustomers] = useState([])
+  const [loadingManualTierCustomers, setLoadingManualTierCustomers] = useState(true)
+  const [manualTierLoadError, setManualTierLoadError] = useState('')
+  const [revertingTierPhone, setRevertingTierPhone] = useState('')
 
   const selectedApplication = useMemo(
     () => applications.find((item) => item.phone === selectedPhone) || null,
@@ -173,6 +189,25 @@ function SupervisorTable({ onStatusCountsChange }) {
       .catch(() => {})
   }, [])
 
+  const loadManualTierCustomers = async () => {
+    setLoadingManualTierCustomers(true)
+    try {
+      const response = await fetch(config.REST_API.Tiers.ManualTiers, { headers: SUPERVISOR_HEADERS() })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.message || 'Unable to load manually changed tiers.')
+      setManualTierCustomers(data.customers || [])
+      setManualTierLoadError('')
+    } catch (error) {
+      setManualTierLoadError(error.message || 'Unable to load manually changed tiers.')
+    } finally {
+      setLoadingManualTierCustomers(false)
+    }
+  }
+
+  useEffect(() => {
+    loadManualTierCustomers()
+  }, [])
+
   const saveThresholds = async () => {
     setSavingThresholds(true)
     try {
@@ -183,9 +218,9 @@ function SupervisorTable({ onStatusCountsChange }) {
       })
       const data = await response.json()
       if (!response.ok) throw new Error(data.message || 'Unable to save tier thresholds.')
-      setStatus({ type: 'success', message: 'Tier thresholds updated.' })
+      setThresholdStatus({ type: 'success', message: 'Tier thresholds updated.' })
     } catch (error) {
-      setStatus({ type: 'error', message: error.message })
+      setThresholdStatus({ type: 'error', message: error.message })
     } finally {
       setSavingThresholds(false)
     }
@@ -201,9 +236,28 @@ function SupervisorTable({ onStatusCountsChange }) {
       })
       const data = await response.json()
       if (!response.ok) throw new Error(data.message || 'Unable to update customer tier.')
-      setStatus({ type: 'success', message: 'Customer tier updated.' })
+      await loadManualTierCustomers()
+      setTierStatus({ type: 'success', message: 'Customer tier updated.' })
     } catch (error) {
-      setStatus({ type: 'error', message: error.message })
+      setTierStatus({ type: 'error', message: error.message })
+    }
+  }
+
+  const revertCustomerTier = async (phone) => {
+    setRevertingTierPhone(phone)
+    try {
+      const response = await fetch(config.REST_API.Tiers.RevertCustomerTier(phone), {
+        method: 'POST',
+        headers: SUPERVISOR_HEADERS(),
+      })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.message || 'Unable to revert customer tier.')
+      await loadManualTierCustomers()
+      setTierStatus({ type: 'success', message: `Customer returned to automatic ${data.tier} tier.` })
+    } catch (error) {
+      setTierStatus({ type: 'error', message: error.message || 'Unable to revert customer tier.' })
+    } finally {
+      setRevertingTierPhone('')
     }
   }
 
@@ -371,6 +425,7 @@ function SupervisorTable({ onStatusCountsChange }) {
         message: `Imported ${data.totals.imported} transaction(s).`,
         details: [`${data.totals.duplicates} duplicate(s) skipped, ${data.totals.unmatched} unmatched, ${data.totals.invalid} invalid.`],
       })
+      await loadManualTierCustomers()
     } catch (error) {
       setUploadStatus({ type: 'error', message: error.message || 'Unable to process transaction upload.', details: [] })
     } finally {
@@ -539,6 +594,9 @@ function SupervisorTable({ onStatusCountsChange }) {
               {savingThresholds ? 'Saving...' : 'Save Thresholds'}
             </button>
           </div>
+          {thresholdStatus.message && (
+            <div className={`status-banner ${thresholdStatus.type}`}>{thresholdStatus.message}</div>
+          )}
           <div className="threshold-list">
             {thresholds.map(({ name, minimum }) => (
               <div key={name} className="threshold-item">
@@ -559,6 +617,9 @@ function SupervisorTable({ onStatusCountsChange }) {
           </div>
           <div className="tier-override-controls">
             <strong>Manual Customer Tier</strong>
+            {tierStatus.message && (
+              <div className={`status-banner ${tierStatus.type}`}>{tierStatus.message}</div>
+            )}
             <select value={selectedTierCustomer} onChange={(event) => setSelectedTierCustomer(event.target.value)}>
               <option value="">Select approved customer</option>
               {approvedCustomers.map((customer) => <option key={customer.phone} value={customer.phone}>{customer.name}</option>)}
@@ -567,6 +628,51 @@ function SupervisorTable({ onStatusCountsChange }) {
               {['Bronze', 'Silver', 'Gold', 'Diamond'].map((tier) => <option key={tier} value={tier}>{tier}</option>)}
             </select>
             <button className="edit-btn" onClick={updateCustomerTier} disabled={!selectedTierCustomer}>Update Tier</button>
+          </div>
+          <div className="manual-tier-table-section">
+            <h4>Manually Changed Tiers</h4>
+            {manualTierLoadError && <div className="status-banner error">{manualTierLoadError}</div>}
+            <div className="table-scroll">
+              <table className="data-table manual-tier-table">
+                <thead>
+                  <tr>
+                    <th>Customer</th>
+                    <th>Manual Tier</th>
+                    <th>Original Tier (Usage)</th>
+                    <th>Lifetime Volume</th>
+                    <th>Last Activity</th>
+                    <th>Changed By</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {!loadingManualTierCustomers && !manualTierLoadError && manualTierCustomers.length === 0 && (
+                    <tr><td colSpan="7">No manually changed tiers.</td></tr>
+                  )}
+                  {manualTierCustomers.map((customer) => (
+                    <tr key={customer.phone}>
+                      <td>{customer.name}<br /><small>{formatPhone(customer.phone)}</small></td>
+                      <td><TierBadge label={customer.rewardTier} /></td>
+                      <td><TierBadge label={customer.originalTier} /></td>
+                      <td>{formatCurrency(customer.lifetimeVolume)}</td>
+                      <td>{formatActivityDate(customer.lastActivityAt)}</td>
+                      <td>{customer.changedBy || 'Unknown'}</td>
+                      <td>
+                        <button
+                          className="edit-btn"
+                          onClick={() => revertCustomerTier(customer.phone)}
+                          disabled={revertingTierPhone === customer.phone}
+                          title="Clear the manual override and resume automatic tier calculation"
+                        >
+                          {revertingTierPhone === customer.phone ? 'Reverting...' : 'Revert to Normal'}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {loadingManualTierCustomers && <tr><td colSpan="7">Loading manual tier overrides...</td></tr>}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>

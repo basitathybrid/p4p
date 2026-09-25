@@ -20,10 +20,10 @@ function validateThresholds(thresholds) {
   if (!Array.isArray(thresholds) || thresholds.length !== DEFAULT_THRESHOLDS.length) return false;
   const names = thresholds.map((tier) => tier.name);
   if (DEFAULT_THRESHOLDS.some((tier) => !names.includes(tier.name))) return false;
-  const ordered = [...thresholds].sort((left, right) => Number(left.minimum) - Number(right.minimum));
-  return ordered[0].name === 'Bronze'
-    && Number(ordered[0].minimum) === 0
-    && ordered.every((tier, index) => index === 0 || Number(tier.minimum) > Number(ordered[index - 1].minimum));
+  const minimumByName = new Map(thresholds.map((tier) => [tier.name, Number(tier.minimum)]));
+  return DEFAULT_THRESHOLDS.every((tier, index) => (
+    index === 0 || minimumByName.get(tier.name) > minimumByName.get(DEFAULT_THRESHOLDS[index - 1].name)
+  ));
 }
 
 module.exports = { DEFAULT_THRESHOLDS, TIER_RANK, getTierThresholds, tierForVolume, validateThresholds };

@@ -25,12 +25,17 @@ const config = {
       GetApplicationByPhone: (phone) => `${ROOT_URL}review/applications/${phone}`,
       SubmitDecision: (phone) => `${ROOT_URL}review/applications/${phone}/decision`,
     },
+    Basic: {
+      Customers: `${ROOT_URL}basic/customers`,
+    },
     Uploads: {
       Transactions: `${ROOT_URL}uploads/transactions`,
     },
     Tiers: {
       Thresholds: `${ROOT_URL}tier-thresholds`,
       CustomerTier: (phone) => `${ROOT_URL}review/customers/${encodeURIComponent(phone)}/tier`,
+      ManualTiers: `${ROOT_URL}review/customers/manual-tiers`,
+      RevertCustomerTier: (phone) => `${ROOT_URL}review/customers/${encodeURIComponent(phone)}/tier/revert`,
     },
   },
 }

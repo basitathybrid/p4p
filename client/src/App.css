@@ -3309,7 +3309,7 @@ button {
 .basic-user-layout,
 .supervisor-layout {
   display: grid;
-  grid-template-columns: minmax(0, 2.2fr) minmax(310px, 0.9fr);
+  grid-template-columns: minmax(0, 2.2fr) minmax(360px, 0.9fr);
   gap: 18px;
 }
 
@@ -4078,7 +4078,7 @@ button {
 
 .threshold-item {
   display: grid;
-  grid-template-columns: 42px minmax(0, 1fr) auto;
+  grid-template-columns: 42px minmax(0, 1fr) 132px;
   gap: 12px;
   align-items: center;
   border: 1px solid var(--line-soft);
@@ -4135,7 +4135,7 @@ button {
 }
 
 .threshold-amount {
-  width: 88px;
+  width: 132px;
   box-sizing: border-box;
   border: 1px solid var(--line);
   border-radius: 8px;
@@ -4161,6 +4161,24 @@ button {
   border-radius: 8px;
   padding: 8px;
   background: #fff;
+}
+
+.manual-tier-table-section {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line-soft);
+}
+
+.manual-tier-table-section h4 {
+  margin: 0;
+}
+
+.manual-tier-table {
+  min-width: 760px;
+}
+
+.supervisor-shell .manual-tier-table tbody tr:hover {
+  background: rgba(124, 34, 213, 0.16);
 }
 
 .stat-card {

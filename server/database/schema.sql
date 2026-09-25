@@ -92,6 +92,7 @@ CREATE TABLE IF NOT EXISTS customer_usage (
   sell_total                  DECIMAL(18, 2) NOT NULL DEFAULT 0,
   reward_tier                 ENUM('Bronze', 'Silver', 'Gold', 'Diamond') NOT NULL DEFAULT 'Bronze',
   tier_override               ENUM('Bronze', 'Silver', 'Gold', 'Diamond') NULL,
+  tier_override_by            VARCHAR(255) NULL,
   updated_at                  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   CONSTRAINT fk_customer_usage_application FOREIGN KEY (phone) REFERENCES applications(phone)
 );
@@ -116,6 +117,18 @@ SET @tier_override_sql = IF(@tier_override_exists = 0,
 PREPARE tier_override_stmt FROM @tier_override_sql;
 EXECUTE tier_override_stmt;
 DEALLOCATE PREPARE tier_override_stmt;
+
+SET @tier_override_by_exists = (
+  SELECT COUNT(*) FROM information_schema.columns
+  WHERE table_schema = DATABASE() AND table_name = 'customer_usage' AND column_name = 'tier_override_by'
+);
+SET @tier_override_by_sql = IF(@tier_override_by_exists = 0,
+  'ALTER TABLE customer_usage ADD COLUMN tier_override_by VARCHAR(255) NULL AFTER tier_override',
+  'SELECT 1'
+);
+PREPARE tier_override_by_stmt FROM @tier_override_by_sql;
+EXECUTE tier_override_by_stmt;
+DEALLOCATE PREPARE tier_override_by_stmt;
 
 CREATE TABLE IF NOT EXISTS supervisors (
   id            BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
