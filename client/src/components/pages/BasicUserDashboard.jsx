@@ -4,7 +4,8 @@ import config from '../../config'
 import { useProfilePicture } from '../../useProfilePicture'
 import welcomeBannerArt from '../../assets/play4perks-banner-art.png'
 import { AppLayout } from '../layout/AppLayout'
-import { Icon, StatusBadge, TierBadge } from '../ui/Icon'
+import { Icon, TierBadge } from '../ui/Icon'
+import { CustomerUsageProfile } from '../ui/CustomerUsageProfile'
 
 function formatPhone(phone) {
   const digits = String(phone || '').replace(/\D/g, '')
@@ -79,7 +80,19 @@ function BasicUserTable() {
                 <tr><td colSpan="7">No approved customers found.</td></tr>
               )}
               {customers.map((customer) => (
-                <tr key={customer.phone}>
+                <tr
+                  key={customer.phone}
+                  className={selectedPhone === customer.phone ? 'selected-customer-row' : ''}
+                  tabIndex={0}
+                  aria-selected={selectedPhone === customer.phone}
+                  onClick={() => setSelectedPhone(customer.phone)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault()
+                      setSelectedPhone(customer.phone)
+                    }
+                  }}
+                >
                   <td>
                     <span className="customer-name-cell">
                       <span className="customer-table-avatar">{customer.name.split(' ').map((part) => part[0]).join('')}</span>
@@ -91,7 +104,7 @@ function BasicUserTable() {
                   <td>{formatCurrency(customer.lifetimeVolume)}</td>
                   <td>{customer.transactionCount}</td>
                   <td>{customer.lastActivityAt ? new Date(customer.lastActivityAt).toLocaleDateString() : '—'}</td>
-                  <td><button type="button" className="row-action" onClick={() => setSelectedPhone(customer.phone)} aria-label={`View ${customer.name} details`}>⋮</button></td>
+                  <td><button type="button" className="row-action" aria-label={`View ${customer.name} details`}>⋮</button></td>
                 </tr>
               ))}
             </tbody>
@@ -110,7 +123,6 @@ function BasicUserTable() {
       <aside className="profile-panel">
         <div className="profile-panel-card card-light">
           <div className="panel-title-row"><h3>{selectedCustomer?.name || 'Select a customer'}</h3><button className="close-btn">×</button></div>
-          <div className="panel-status"><StatusBadge text="Approved" tone="green" /></div>
           <div className="customer-phone">{formatPhone(selectedCustomer?.phone)}</div>
           <div className="info-block">
             <div className="info-row"><span>Email Address</span><strong>{selectedCustomer?.email || '—'}</strong></div>
@@ -118,12 +130,7 @@ function BasicUserTable() {
             <div className="info-row"><span>Player ID</span><strong>{selectedCustomer?.playerId || '—'}</strong></div>
           </div>
 
-          <div className="summary-grid">
-            <div><span>Lifetime Volume</span><strong>{formatCurrency(selectedCustomer?.lifetimeVolume)}</strong></div>
-            <div><span>Transaction Count</span><strong>{selectedCustomer?.transactionCount || 0}</strong></div>
-            <div><span>Last Active</span><strong>{selectedCustomer?.lastActivityAt ? new Date(selectedCustomer.lastActivityAt).toLocaleDateString() : '—'}</strong></div>
-            <div><span>Current Tier</span><strong>{selectedCustomer?.rewardTier || '—'}</strong></div>
-          </div>
+          <CustomerUsageProfile phone={selectedCustomer?.phone} role="basic" />
         </div>
       </aside>
     </div>

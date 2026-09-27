@@ -158,7 +158,7 @@ async function importTransactions(csv) {
       await conn.query(
         `INSERT INTO customer_usage (phone, lifetime_transaction_volume, transaction_count, last_activity_at, buy_total, send_total, receive_total, sell_total, reward_tier)
          SELECT phone,
-           COALESCE(SUM(transaction_amount), 0), COUNT(*), MAX(transaction_datetime),
+           COALESCE(SUM(CASE WHEN transaction_type = 'send' THEN transaction_amount ELSE 0 END), 0), COUNT(*), MAX(transaction_datetime),
            COALESCE(SUM(CASE WHEN transaction_type = 'buy' THEN transaction_amount ELSE 0 END), 0),
            COALESCE(SUM(CASE WHEN transaction_type = 'send' THEN transaction_amount ELSE 0 END), 0),
            COALESCE(SUM(CASE WHEN transaction_type = 'receive' THEN transaction_amount ELSE 0 END), 0),

@@ -6,6 +6,7 @@ const config = {
   REST_API: {
     Auth: {
       Login: `${ROOT_URL}auth/login`,
+      Session: `${ROOT_URL}auth/session`,
       ForgotPassword: `${ROOT_URL}auth/forgot-password`,
       ChangePassword: `${ROOT_URL}auth/change-password`,
     },
@@ -31,6 +32,9 @@ const config = {
     },
     Basic: {
       Customers: `${ROOT_URL}basic/customers`,
+    },
+    Internal: {
+      CustomerProfile: (phone) => `${ROOT_URL}internal/customers/${encodeURIComponent(phone)}/profile`,
     },
     Uploads: {
       Transactions: `${ROOT_URL}uploads/transactions`,

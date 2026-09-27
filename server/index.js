@@ -21,6 +21,7 @@ const {
   createSignupSession,
   verifySignupOtp,
   normalizePhone,
+  isValidUsPhone,
   getApplication,
   listApplications,
   updateApplication,
@@ -142,6 +143,15 @@ app.get('/api/health', async (req, res) => {
 app.post('/api/signup/request', async (req, res) => {
   try {
     const payload = req.body || {};
+
+    if (payload.phone && !isValidUsPhone(payload.phone)) {
+      return res.status(400).json({
+        success: false,
+        code: 'INVALID_PHONE',
+        message: 'Enter a valid US phone number.',
+      });
+    }
+
     const phone = normalizePhone(payload.phone);
     const playerId = payload.playerId == null ? '' : String(payload.playerId).trim();
 
@@ -326,6 +336,14 @@ app.post('/api/auth/forgot-password', async (req, res) => {
     console.error('password reset failed:', error);
     return res.status(500).json({ success: false, code: 'SERVER_ERROR', message: 'Unable to process the password reset request. Please try again later.' });
   }
+});
+
+app.get('/api/auth/session', requireAuth(), (req, res) => {
+  if (!['customer', 'basic', 'supervisor'].includes(req.user.role)) {
+    return res.status(403).json({ success: false, code: 'FORBIDDEN', message: 'Access denied.' });
+  }
+
+  return res.status(200).json({ success: true, role: req.user.role });
 });
 
 app.post('/api/auth/change-password', requireAuth(), async (req, res) => {
@@ -665,6 +683,73 @@ app.get('/api/basic/customers', requireAuth(), async (req, res) => {
   } catch (error) {
     console.error('load basic user customers failed:', error);
     return res.status(500).json({ success: false, code: 'SERVER_ERROR', message: 'Unable to load approved customers.' });
+  }
+});
+
+app.get('/api/internal/customers/:phone/profile', requireAuth(), async (req, res) => {
+  if (!['basic', 'supervisor'].includes(req.user.role)) {
+    return res.status(403).json({ success: false, code: 'FORBIDDEN', message: 'Access denied.' });
+  }
+
+  const phone = normalizePhone(req.params.phone);
+  const requestedPage = Number.parseInt(req.query.page, 10) || 1;
+  const pageSize = 25;
+
+  try {
+    const [applicationRows] = await db.query(
+      `SELECT name, phone, email, player_mobile_id AS playerMobileId,
+              player_id AS playerId, status
+       FROM applications WHERE phone = ? LIMIT 1`,
+      [phone]
+    );
+    const application = applicationRows[0];
+
+    if (!application || (req.user.role === 'basic' && application.status !== 'approved')) {
+      return res.status(404).json({ success: false, code: 'NOT_FOUND', message: 'Customer profile not found.' });
+    }
+
+    const [usageRows] = await db.query(
+      `SELECT COALESCE(tier_override, reward_tier, 'Bronze') AS rewardTier,
+              COALESCE(lifetime_transaction_volume, 0) AS lifetimeVolume,
+              COALESCE(transaction_count, 0) AS transactionCount,
+              last_activity_at AS lastActivityAt,
+              COALESCE(buy_total, 0) AS buyTotal,
+              COALESCE(send_total, 0) AS sendTotal,
+              COALESCE(receive_total, 0) AS receiveTotal,
+              COALESCE(sell_total, 0) AS sellTotal
+       FROM customer_usage WHERE phone = ?`,
+      [phone]
+    );
+    const usage = usageRows[0] || {
+      rewardTier: 'Bronze', lifetimeVolume: 0, transactionCount: 0, lastActivityAt: null,
+      buyTotal: 0, sendTotal: 0, receiveTotal: 0, sellTotal: 0,
+    };
+    const [[{ total }]] = await db.query(
+      'SELECT COUNT(*) AS total FROM transactions WHERE phone = ?',
+      [phone]
+    );
+    const pageCount = Math.max(1, Math.ceil(Number(total) / pageSize));
+    const page = Math.min(Math.max(requestedPage, 1), pageCount);
+    const offset = (page - 1) * pageSize;
+    const [transactions] = await db.query(
+      `SELECT transaction_id AS transactionId, transaction_datetime AS transactionDate,
+              transaction_type AS type, transaction_amount AS amount, transaction_status AS status
+       FROM transactions WHERE phone = ?
+       ORDER BY transaction_datetime DESC, transaction_id DESC
+       LIMIT ? OFFSET ?`,
+      [phone, pageSize, offset]
+    );
+
+    return res.status(200).json({
+      success: true,
+      application,
+      usage,
+      transactions,
+      pagination: { page, pageSize, pageCount, total: Number(total) },
+    });
+  } catch (error) {
+    console.error('load internal customer profile failed:', error);
+    return res.status(500).json({ success: false, code: 'SERVER_ERROR', message: 'Unable to load customer profile.' });
   }
 });
 

@@ -345,18 +345,63 @@ const STATUS_COPY = {
   },
 }
 
-function CustomerStatusCard({ status }) {
+function CustomerStatusCard({ status, application }) {
   const copy = STATUS_COPY[status] || STATUS_COPY.pending_review
+  const isRejected = status === 'rejected'
 
   return (
-    <div className="signup-shell">
-      <div className="signup-card">
-        <div className="status-card card-light">
-          <div className="status-icon"><Icon name={copy.icon} /></div>
-          <h3>{copy.title}</h3>
-          <p>{copy.body}</p>
-          {status === 'rejected' && <Link to="/signup" className="primary-btn">Resubmit Application</Link>}
-        </div>
+    <div className="customer-dashboard-shell customer-status-shell">
+      <div className="dashboard-inner">
+        <section className="welcome-banner customer-status-banner">
+          <div className="welcome-brand">
+            <div className={`application-status-mark${isRejected ? ' rejected' : ''}`}><Icon name={copy.icon} /></div>
+            <div className="welcome-brand-tagline">Play4Perks</div>
+          </div>
+          <div className="welcome-copy">
+            <h1>{isRejected ? copy.title : <>Welcome, <span className="gold-name">{application?.name || 'Player'}</span>!</>}</h1>
+            <p>{isRejected ? 'Review your application status and resubmit with updated details.' : 'Your application is in the review queue.'}</p>
+          </div>
+          <div className="welcome-art" aria-hidden="true">
+            <img src={welcomeBannerArt} alt="" className="welcome-game-art" />
+          </div>
+        </section>
+
+        <section className="application-status-layout">
+          <div className="application-status-panel panel-card">
+            <div className="application-status-heading">
+              <span className={`application-status-icon${isRejected ? ' rejected' : ''}`}><Icon name={copy.icon} /></span>
+              <span className={`application-status-label${isRejected ? ' rejected' : ''}`}>{isRejected ? 'Application update' : 'Application status'}</span>
+            </div>
+            <h2>{copy.title}</h2>
+            <p className="application-status-copy">{copy.body}</p>
+            <div className={`application-progress${isRejected ? ' rejected' : ''}`}>
+              <div className="application-progress-step complete">
+                <span className="application-progress-marker"><Icon name="check" /></span>
+                <span>Submitted</span>
+              </div>
+              <span className="application-progress-line" />
+              <div className={`application-progress-step${isRejected ? ' complete' : ' current'}`}>
+                <span className="application-progress-marker"><Icon name={isRejected ? 'check' : 'pending'} /></span>
+                <span>Supervisor review</span>
+              </div>
+              <span className="application-progress-line" />
+              <div className={`application-progress-step${isRejected ? ' current' : ''}`}>
+                <span className="application-progress-marker"><Icon name={isRejected ? 'info' : 'user'} /></span>
+                <span>{isRejected ? 'Update application' : 'Account approval'}</span>
+              </div>
+            </div>
+            {isRejected && <Link to="/signup" className="primary-btn">Resubmit Application</Link>}
+          </div>
+
+          <aside className="application-next-panel">
+            <span className="application-next-kicker">{isRejected ? 'Next step' : 'While you wait'}</span>
+            <h3>{isRejected ? 'Update your details' : "We'll keep you posted"}</h3>
+            <p>{isRejected
+              ? 'You can submit a new application with corrected or updated information.'
+              : 'Your profile and dashboard will be available as soon as a supervisor completes the review.'}</p>
+            {!isRejected && <div className="application-next-status"><Icon name="bell" /><span>Check back here for your application status</span></div>}
+          </aside>
+        </section>
       </div>
     </div>
   )
@@ -406,7 +451,7 @@ export function CustomerDashboard() {
   }
 
   if (state.status !== 'approved') {
-    return <CustomerStatusCard status={state.status} />
+    return <CustomerStatusCard status={state.status} application={state.application} />
   }
 
   return <CustomerApprovedDashboard application={state.application} usage={state.usage} transactions={state.transactions} />

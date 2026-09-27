@@ -15,6 +15,10 @@ function normalizePhone(phone) {
   return digits.length === 10 ? `1${digits}` : digits;
 }
 
+function isValidUsPhone(phone) {
+  return /^(\+?1)?\d{10}$/.test(String(phone || '').trim());
+}
+
 function generateOtpCode() {
   return String(Math.floor(100000 + Math.random() * 900000)).padStart(6, '0');
 }
@@ -130,6 +134,10 @@ async function updateCustomerPassword(phone, password) {
 }
 
 async function createSignupSession(payload) {
+  if (!isValidUsPhone(payload.phone)) {
+    return { success: false, code: 'INVALID_PHONE' };
+  }
+
   const phone = normalizePhone(payload.phone);
 
   if (!phone) {
@@ -337,6 +345,7 @@ async function resetSignupState() {
 
 module.exports = {
   normalizePhone,
+  isValidUsPhone,
   createSignupSession,
   verifySignupOtp,
   getApplication,
