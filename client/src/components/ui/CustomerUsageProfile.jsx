@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import config from '../../config'
+import { notifyAuditLogUpdated } from '../../auditEvents'
 import { StatusBadge } from './Icon'
 
 function formatCurrency(value) {
@@ -55,6 +56,7 @@ export function CustomerUsageProfile({ phone, role }) {
         const data = await response.json()
         if (!response.ok) throw new Error(data.message || 'Unable to load customer profile usage.')
         setProfile(data)
+        if (role === 'supervisor' || role === 'basic') notifyAuditLogUpdated()
       })
       .catch((loadError) => {
         if (loadError.name !== 'AbortError') setError(loadError.message || 'Unable to load customer profile usage.')

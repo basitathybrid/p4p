@@ -8,6 +8,7 @@ import { AppLayout } from '../layout/AppLayout'
 import { Icon, StatCard, StatusBadge, TierBadge } from '../ui/Icon'
 import { SupervisorCustomerDirectory } from '../ui/SupervisorCustomerDirectory'
 import { SupervisorAuditLog } from '../ui/SupervisorAuditLog'
+import { notifyAuditLogUpdated } from '../../auditEvents'
 
 const SUPERVISOR_HEADERS = () => ({
   'Content-Type': 'application/json',
@@ -296,6 +297,7 @@ function SupervisorTable({ onStatusCountsChange }) {
       })
       const data = await response.json()
       if (!response.ok) throw new Error(data.message || 'Unable to load application details.')
+      notifyAuditLogUpdated()
       setApplications((current) => current.map((application) => (
         application.phone === phone ? data.application : application
       )))

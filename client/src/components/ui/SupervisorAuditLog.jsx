@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import config from '../../config'
+import { AUDIT_LOG_UPDATED_EVENT } from '../../auditEvents'
 
 function formatDate(value) {
   return value ? new Date(value).toLocaleString() : '—'
@@ -33,8 +34,18 @@ export function SupervisorAuditLog() {
   const [logs, setLogs] = useState([])
   const [pagination, setPagination] = useState({ page: 1, pageCount: 1, total: 0 })
   const [page, setPage] = useState(1)
+  const [refreshVersion, setRefreshVersion] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+
+  useEffect(() => {
+    const refreshAuditLog = () => {
+      setPage(1)
+      setRefreshVersion((current) => current + 1)
+    }
+    window.addEventListener(AUDIT_LOG_UPDATED_EVENT, refreshAuditLog)
+    return () => window.removeEventListener(AUDIT_LOG_UPDATED_EVENT, refreshAuditLog)
+  }, [])
 
   useEffect(() => {
     const token = localStorage.getItem('p4p_supervisor_token')
@@ -59,7 +70,7 @@ export function SupervisorAuditLog() {
       })
 
     return () => controller.abort()
-  }, [page])
+  }, [page, refreshVersion])
 
   return (
     <section className="supervisor-audit-section" aria-labelledby="supervisor-audit-title">
