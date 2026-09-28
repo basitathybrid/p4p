@@ -6,6 +6,8 @@ import { useProfilePicture } from '../../useProfilePicture'
 import welcomeBannerArt from '../../assets/play4perks-banner-art.png'
 import { AppLayout } from '../layout/AppLayout'
 import { Icon, StatCard, StatusBadge, TierBadge } from '../ui/Icon'
+import { SupervisorCustomerDirectory } from '../ui/SupervisorCustomerDirectory'
+import { SupervisorAuditLog } from '../ui/SupervisorAuditLog'
 
 const SUPERVISOR_HEADERS = () => ({
   'Content-Type': 'application/json',
@@ -286,6 +288,22 @@ function SupervisorTable({ onStatusCountsChange }) {
     setForm((current) => ({ ...current, [name]: value }))
   }
 
+  const selectApplication = async (phone) => {
+    setSelectedPhone(phone)
+    try {
+      const response = await fetch(config.REST_API.Review.GetApplicationByPhone(phone), {
+        headers: SUPERVISOR_HEADERS(),
+      })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.message || 'Unable to load application details.')
+      setApplications((current) => current.map((application) => (
+        application.phone === phone ? data.application : application
+      )))
+    } catch (error) {
+      setStatus({ type: 'error', message: error.message || 'Unable to load application details.' })
+    }
+  }
+
   const saveApplicationDetails = async (phone) => {
     const response = await fetch(config.REST_API.Review.GetApplicationByPhone(phone), {
       method: 'PATCH',
@@ -355,7 +373,7 @@ function SupervisorTable({ onStatusCountsChange }) {
     setStatus({ type: 'idle', message: '' })
 
     try {
-      const response = await fetch(`${config.REST_API.Review.Applications}?status=approved`, {
+      const response = await fetch(`${config.REST_API.Review.Applications}?status=approved&export=xlsx`, {
         headers: SUPERVISOR_HEADERS(),
       })
       const data = await response.json()
@@ -442,6 +460,7 @@ function SupervisorTable({ onStatusCountsChange }) {
   ]
 
   return (
+    <>
     <div className="supervisor-layout">
       <div className="supervisor-main">
         <div className="supervisor-queue card-light">
@@ -469,7 +488,7 @@ function SupervisorTable({ onStatusCountsChange }) {
                 key={item.phone}
                 type="button"
                 className="queue-item"
-                onClick={() => setSelectedPhone(item.phone)}
+                onClick={() => selectApplication(item.phone)}
               >
                 <div className="queue-avatar">{item.name.split(' ').map((part) => part[0]).slice(0, 2).join('')}</div>
                 <div className="queue-copy">
@@ -546,13 +565,17 @@ function SupervisorTable({ onStatusCountsChange }) {
           <div className="workflow-steps">
             {workflow.map((step) => (
               <div key={step.label} className={`workflow-step ${step.active ? 'active' : ''}`}>
-                {step.active && <div className="step-dot">✓</div>}
+                <div className="step-dot" aria-label={step.active ? 'Records present' : 'No records'} title={step.active ? 'Records present' : 'No records'}>
+                  {step.active ? '✓' : '–'}
+                </div>
                 <div className="step-count">{step.count}</div>
                 <div className="step-name">{step.label}</div>
               </div>
             ))}
           </div>
         </div>
+        <SupervisorCustomerDirectory />
+        <SupervisorAuditLog />
       </div>
 
       <div className="supervisor-side">
@@ -678,6 +701,7 @@ function SupervisorTable({ onStatusCountsChange }) {
         </div>
       </div>
     </div>
+    </>
   )
 }
 

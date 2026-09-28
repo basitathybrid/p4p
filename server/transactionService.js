@@ -1,4 +1,5 @@
 const db = require('./db');
+const { writeAuditLog } = require('./auditLog');
 const { DEFAULT_THRESHOLDS, getTierThresholds, tierForVolume: calculateTier } = require('./tierService');
 
 const TRANSACTION_TYPES = new Set(['buy', 'send', 'receive', 'sell']);
@@ -90,7 +91,7 @@ function mapRow(headers, values, rowNumber) {
   };
 }
 
-async function importTransactions(csv) {
+async function importTransactions(csv, actor = null) {
   if (typeof csv !== 'string' || !csv.trim()) {
     return { success: false, code: 'EMPTY_FILE', message: 'A CSV file is required.' };
   }
@@ -158,7 +159,7 @@ async function importTransactions(csv) {
       await conn.query(
         `INSERT INTO customer_usage (phone, lifetime_transaction_volume, transaction_count, last_activity_at, buy_total, send_total, receive_total, sell_total, reward_tier)
          SELECT phone,
-           COALESCE(SUM(CASE WHEN transaction_type = 'send' THEN transaction_amount ELSE 0 END), 0), COUNT(*), MAX(transaction_datetime),
+           COALESCE(SUM(CASE WHEN transaction_type = 'send' AND LOWER(TRIM(transaction_status)) = 'completed' THEN transaction_amount ELSE 0 END), 0), COUNT(*), MAX(transaction_datetime),
            COALESCE(SUM(CASE WHEN transaction_type = 'buy' THEN transaction_amount ELSE 0 END), 0),
            COALESCE(SUM(CASE WHEN transaction_type = 'send' THEN transaction_amount ELSE 0 END), 0),
            COALESCE(SUM(CASE WHEN transaction_type = 'receive' THEN transaction_amount ELSE 0 END), 0),
@@ -183,6 +184,15 @@ async function importTransactions(csv) {
           [calculateTier(usageRows[0].lifetime_transaction_volume, thresholds), phone]
         );
       }
+    }
+
+    if (actor) {
+      await writeAuditLog(actor, 'transaction_csv_uploaded', 'transaction_dataset', null, {
+        imported: report.imported.length,
+        duplicates: report.duplicates.length,
+        unmatched: report.unmatched.length,
+        invalid: report.invalid.length,
+      }, conn);
     }
 
     await conn.commit();

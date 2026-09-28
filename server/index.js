@@ -9,6 +9,7 @@ const { startOtpVerification, checkOtpVerification, sendReviewDecisionSms } = re
 const { sendTemporaryPasswordEmail } = require('./services/emailService');
 const { signCustomerToken, signSupervisorToken, signBasicUserToken, requireCustomerAuth, requireSupervisorAuth, requireBasicUserAuth, requireAuth } = require('./auth');
 const { importTransactions } = require('./transactionService');
+const { writeAuditLog } = require('./auditLog');
 const { TIER_RANK, getTierThresholds, tierForVolume, validateThresholds } = require('./tierService');
 const {
   MAX_PROFILE_IMAGE_BYTES,
@@ -652,7 +653,18 @@ app.get('/api/customer/session', requireCustomerAuth, async (req, res) => {
 app.get('/api/review/applications', requireSupervisorAuth, async (req, res) => {
   try {
     const status = req.query.status ? String(req.query.status) : undefined;
+    const exportFormat = String(req.query.export || '').toLowerCase();
+    if (exportFormat && (exportFormat !== 'xlsx' || status !== 'approved')) {
+      return res.status(400).json({ success: false, code: 'INVALID_EXPORT_AUDIT', message: 'Only approved-customer Excel exports are supported.' });
+    }
     const applications = await listApplications(status);
+    if (exportFormat) {
+      await writeAuditLog(req.user, 'customer_data_exported', 'customer_dataset', null, {
+        format: exportFormat,
+        recordCount: applications.length,
+        filterFields: ['status'],
+      });
+    }
     return res.status(200).json({ success: true, applications });
   } catch (error) {
     console.error('list applications failed:', error);
@@ -660,29 +672,138 @@ app.get('/api/review/applications', requireSupervisorAuth, async (req, res) => {
   }
 });
 
-app.get('/api/basic/customers', requireAuth(), async (req, res) => {
-  if (req.user.role !== 'basic') {
+app.get(['/api/basic/customers', '/api/supervisor/customers'], requireAuth(), async (req, res) => {
+  if (!['basic', 'supervisor'].includes(req.user.role)) {
     return res.status(403).json({ success: false, code: 'FORBIDDEN', message: 'Access denied.' });
   }
 
   try {
+    const filters = req.query;
+    const where = [];
+    const params = [];
+    const tiers = ['Bronze', 'Silver', 'Gold', 'Diamond'];
+    const statuses = ['pending_review', 'approved', 'rejected'];
+    const transactionTypes = ['buy', 'send', 'receive', 'sell'];
+    const addRange = (minimumKey, maximumKey, expression, integer = false) => {
+      const minimum = filters[minimumKey] === undefined || filters[minimumKey] === '' ? null : Number(filters[minimumKey]);
+      const maximum = filters[maximumKey] === undefined || filters[maximumKey] === '' ? null : Number(filters[maximumKey]);
+      if ([minimum, maximum].some((value) => value !== null && (!Number.isFinite(value) || value < 0 || (integer && !Number.isInteger(value))))) {
+        return false;
+      }
+      if (minimum !== null && maximum !== null && minimum > maximum) return false;
+      if (minimum !== null) {
+        where.push(`${expression} >= ?`);
+        params.push(minimum);
+      }
+      if (maximum !== null) {
+        where.push(`${expression} <= ?`);
+        params.push(maximum);
+      }
+      return true;
+    };
+    const addDateRange = (fromKey, toKey, expression) => {
+      const from = filters[fromKey] || '';
+      const to = filters[toKey] || '';
+      const isDate = (value) => /^\d{4}-\d{2}-\d{2}$/.test(value)
+        && !Number.isNaN(Date.parse(`${value}T00:00:00Z`))
+        && new Date(`${value}T00:00:00Z`).toISOString().slice(0, 10) === value;
+      if ((from && !isDate(from)) || (to && !isDate(to)) || (from && to && from > to)) return false;
+      if (from) {
+        where.push(`DATE(${expression}) >= ?`);
+        params.push(from);
+      }
+      if (to) {
+        where.push(`DATE(${expression}) <= ?`);
+        params.push(to);
+      }
+      return true;
+    };
+
+    const search = String(filters.search || '').trim();
+    if (search) {
+      const phoneSearch = search.replace(/\D/g, '');
+      where.push('(a.name LIKE ? OR a.phone LIKE ?)');
+      params.push(`%${search}%`, `%${phoneSearch || search}%`);
+    }
+    if (filters.tier) {
+      if (!tiers.includes(filters.tier)) return res.status(400).json({ success: false, message: 'Select a valid customer tier.' });
+      where.push("COALESCE(u.tier_override, u.reward_tier, 'Bronze') = ?");
+      params.push(filters.tier);
+    }
+    if (filters.status) {
+      if (!statuses.includes(filters.status)) return res.status(400).json({ success: false, message: 'Select a valid approval status.' });
+      where.push('a.status = ?');
+      params.push(filters.status);
+    }
+    if (filters.transactionType) {
+      if (!transactionTypes.includes(filters.transactionType)) return res.status(400).json({ success: false, message: 'Select a valid transaction type.' });
+      where.push('EXISTS (SELECT 1 FROM transactions t WHERE t.phone = a.phone AND t.transaction_type = ?)');
+      params.push(filters.transactionType);
+    }
+    if (!addRange('minVolume', 'maxVolume', "COALESCE(u.lifetime_transaction_volume, 0)")
+      || !addRange('minCount', 'maxCount', 'COALESCE(u.transaction_count, 0)', true)
+      || !addDateRange('lastActivityFrom', 'lastActivityTo', 'u.last_activity_at')
+      || !addDateRange('signupFrom', 'signupTo', 'a.submitted_at')) {
+      return res.status(400).json({ success: false, message: 'Enter valid filter ranges.' });
+    }
+
     const [customers] = await db.query(
-      `SELECT a.name, a.phone, a.email,
+          `SELECT a.profile_id AS profileId, a.name, a.phone, a.email,
               a.player_mobile_id AS playerMobileId, a.player_id AS playerId,
+            a.facebook, a.instagram, a.telegram, a.status,
+            a.submitted_at AS submittedAt, a.reviewed_at AS reviewedAt,
+            a.review_decision AS reviewDecision, a.review_reviewer AS reviewReviewer,
               COALESCE(u.tier_override, u.reward_tier, 'Bronze') AS rewardTier,
               COALESCE(u.reward_tier, 'Bronze') AS originalTier,
               COALESCE(u.lifetime_transaction_volume, 0) AS lifetimeVolume,
               COALESCE(u.transaction_count, 0) AS transactionCount,
-              u.last_activity_at AS lastActivityAt
+            u.last_activity_at AS lastActivityAt,
+            COALESCE(u.buy_total, 0) AS buyTotal,
+            COALESCE(u.send_total, 0) AS sendTotal,
+            COALESCE(u.receive_total, 0) AS receiveTotal,
+            COALESCE(u.sell_total, 0) AS sellTotal
        FROM applications a
        LEFT JOIN customer_usage u ON u.phone = a.phone
-       WHERE a.status = 'approved'
-       ORDER BY a.name ASC`
+       ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+       ORDER BY a.name ASC`,
+      params
     );
+    if (filters.export === 'csv') {
+      await writeAuditLog(req.user, 'customer_data_exported', 'customer_dataset', null, {
+        format: 'csv',
+        recordCount: customers.length,
+        filterFields: Object.keys(filters).filter((key) => key !== 'export'),
+      });
+    }
     return res.status(200).json({ success: true, customers });
   } catch (error) {
     console.error('load basic user customers failed:', error);
-    return res.status(500).json({ success: false, code: 'SERVER_ERROR', message: 'Unable to load approved customers.' });
+    return res.status(500).json({ success: false, code: 'SERVER_ERROR', message: 'Unable to load customers.' });
+  }
+});
+
+app.get('/api/supervisor/audit-logs', requireSupervisorAuth, async (req, res) => {
+  const requestedPage = Number.parseInt(req.query.page, 10) || 1;
+  const pageSize = 50;
+
+  try {
+    const [[{ total }]] = await db.query('SELECT COUNT(*) AS total FROM audit_logs');
+    const pageCount = Math.max(1, Math.ceil(Number(total) / pageSize));
+    const page = Math.min(Math.max(requestedPage, 1), pageCount);
+    const offset = (page - 1) * pageSize;
+    const [logs] = await db.query(
+      `SELECT id, actor_id AS actorId, actor_name AS actorName, actor_role AS actorRole,
+              action, target_type AS targetType, target_id AS targetId,
+              details, created_at AS createdAt
+       FROM audit_logs
+       ORDER BY created_at DESC, id DESC
+       LIMIT ? OFFSET ?`,
+      [pageSize, offset]
+    );
+    return res.status(200).json({ success: true, logs, pagination: { page, pageSize, pageCount, total: Number(total) } });
+  } catch (error) {
+    console.error('load audit logs failed:', error);
+    return res.status(500).json({ success: false, code: 'SERVER_ERROR', message: 'Unable to load audit logs.' });
   }
 });
 
@@ -704,7 +825,7 @@ app.get('/api/internal/customers/:phone/profile', requireAuth(), async (req, res
     );
     const application = applicationRows[0];
 
-    if (!application || (req.user.role === 'basic' && application.status !== 'approved')) {
+    if (!application) {
       return res.status(404).json({ success: false, code: 'NOT_FOUND', message: 'Customer profile not found.' });
     }
 
@@ -739,6 +860,9 @@ app.get('/api/internal/customers/:phone/profile', requireAuth(), async (req, res
        LIMIT ? OFFSET ?`,
       [phone, pageSize, offset]
     );
+
+    const eventKey = /^[a-zA-Z0-9-]{1,64}$/.test(String(req.query.viewId || '')) ? req.query.viewId : null;
+    await writeAuditLog(req.user, 'customer_profile_viewed', 'customer', phone, { page }, db, eventKey);
 
     return res.status(200).json({
       success: true,
@@ -787,10 +911,19 @@ app.put('/api/tier-thresholds', requireAuth(), async (req, res) => {
     for (const tier of thresholds) {
       await conn.query('UPDATE tier_thresholds SET minimum_volume = ? WHERE tier_name = ?', [tier.minimum, tier.name]);
     }
-    const [usageRows] = await conn.query('SELECT phone, lifetime_transaction_volume FROM customer_usage');
+    const [usageRows] = await conn.query('SELECT phone, lifetime_transaction_volume, reward_tier FROM customer_usage');
     for (const usage of usageRows) {
-      await conn.query('UPDATE customer_usage SET reward_tier = ? WHERE phone = ?', [tierForVolume(usage.lifetime_transaction_volume, thresholds), usage.phone]);
+      const nextTier = tierForVolume(usage.lifetime_transaction_volume, thresholds);
+      await conn.query('UPDATE customer_usage SET reward_tier = ? WHERE phone = ?', [nextTier, usage.phone]);
+      if (usage.reward_tier !== nextTier) {
+        await writeAuditLog(req.user, 'customer_tier_changed', 'customer', usage.phone, {
+          previousTier: usage.reward_tier,
+          newTier: nextTier,
+          reason: 'threshold_update',
+        }, conn);
+      }
     }
+    await writeAuditLog(req.user, 'tier_thresholds_updated', 'tier_configuration', null, { thresholds }, conn);
     await conn.commit();
     return res.status(200).json({ success: true, thresholds });
   } catch (error) {
@@ -832,7 +965,7 @@ app.post('/api/review/customers/:phone/tier', requireSupervisorAuth, async (req,
   try {
     const conn = await db.getConnection();
     try {
-      const [usageRows] = await conn.query('SELECT lifetime_transaction_volume, reward_tier FROM customer_usage WHERE phone = ?', [normalizePhone(req.params.phone)]);
+      const [usageRows] = await conn.query('SELECT lifetime_transaction_volume, reward_tier, tier_override FROM customer_usage WHERE phone = ?', [normalizePhone(req.params.phone)]);
       if (!usageRows[0]) return res.status(404).json({ success: false, code: 'NOT_FOUND', message: 'Customer usage not found.' });
       const thresholds = await getTierThresholds(conn);
       const automaticTier = tierForVolume(usageRows[0].lifetime_transaction_volume, thresholds);
@@ -843,6 +976,12 @@ app.post('/api/review/customers/:phone/tier', requireSupervisorAuth, async (req,
         'UPDATE customer_usage SET tier_override = ?, tier_override_by = ? WHERE phone = ?',
         [tier, req.user.name || req.user.username || 'Supervisor', normalizePhone(req.params.phone)]
       );
+      await writeAuditLog(req.user, 'customer_tier_changed', 'customer', normalizePhone(req.params.phone), {
+        previousTier: usageRows[0].tier_override || usageRows[0].reward_tier,
+        newTier: tier,
+        automaticTier,
+        reason: 'manual_override',
+      }, conn);
       return res.status(200).json({ success: true, tier });
     } finally {
       conn.release();
@@ -873,6 +1012,11 @@ app.post('/api/review/customers/:phone/tier/revert', requireSupervisorAuth, asyn
       'UPDATE customer_usage SET reward_tier = ?, tier_override = NULL, tier_override_by = NULL WHERE phone = ?',
       [tier, phone]
     );
+    await writeAuditLog(req.user, 'customer_tier_changed', 'customer', phone, {
+      previousTier: usageRows[0].tier_override,
+      newTier: tier,
+      reason: 'manual_override_reverted',
+    }, conn);
     await conn.commit();
     return res.status(200).json({ success: true, tier });
   } catch (error) {
@@ -892,6 +1036,8 @@ app.get('/api/review/applications/:phone', requireSupervisorAuth, async (req, re
       return res.status(404).json({ success: false, code: 'NOT_FOUND', message: 'Application not found.' });
     }
 
+    await writeAuditLog(req.user, 'customer_profile_viewed', 'customer', application.phone, { source: 'application_review' });
+
     return res.status(200).json({ success: true, application });
   } catch (error) {
     console.error('get application failed:', error);
@@ -901,6 +1047,7 @@ app.get('/api/review/applications/:phone', requireSupervisorAuth, async (req, re
 
 app.patch('/api/review/applications/:phone', requireSupervisorAuth, async (req, res) => {
   try {
+    const previousApplication = await getApplication(req.params.phone);
     const result = await updateApplication(req.params.phone, req.body || {});
 
     if (!result.success) {
@@ -913,6 +1060,14 @@ app.patch('/api/review/applications/:phone', requireSupervisorAuth, async (req, 
             ? 'Player ID must be numeric.'
           : 'Application not found.',
       });
+    }
+
+    const editableFields = ['name', 'email', 'playerMobileId', 'playerId', 'facebook', 'instagram', 'telegram'];
+    const changes = Object.fromEntries(editableFields
+      .filter((field) => req.body?.[field] !== undefined && String(previousApplication?.[field] ?? '') !== String(result.application[field] ?? ''))
+      .map((field) => [field, { from: previousApplication?.[field] ?? '', to: result.application[field] ?? '' }]));
+    if (Object.keys(changes).length) {
+      await writeAuditLog(req.user, 'customer_profile_edited', 'customer', result.application.phone, { changes });
     }
 
     return res.status(200).json({
@@ -950,6 +1105,10 @@ app.post('/api/review/applications/:phone/decision', requireSupervisorAuth, asyn
       });
     }
 
+    await writeAuditLog(req.user, result.application.status === 'approved' ? 'application_approved' : 'application_rejected', 'customer', result.application.phone, {
+      decision: result.application.status,
+    });
+
     const sms = await sendReviewDecisionSms(result.application.phone, result.application.status);
 
     return res.status(200).json({
@@ -967,7 +1126,7 @@ app.post('/api/review/applications/:phone/decision', requireSupervisorAuth, asyn
 app.post('/api/uploads/transactions', requireSupervisorAuth, async (req, res) => {
   try {
     const csv = typeof req.body === 'string' ? req.body : req.body?.csv;
-    const result = await importTransactions(csv);
+    const result = await importTransactions(csv, req.user);
 
     if (!result.success) {
       return res.status(400).json(result);

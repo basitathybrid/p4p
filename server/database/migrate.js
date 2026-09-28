@@ -75,6 +75,48 @@ const MIGRATIONS = [
       }
     },
   },
+  {
+    id: '005_internal_audit_logs',
+    async up(conn) {
+      await conn.query(`
+        CREATE TABLE IF NOT EXISTS audit_logs (
+          id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+          actor_id BIGINT UNSIGNED NULL,
+          actor_name VARCHAR(255) NOT NULL,
+          actor_role VARCHAR(32) NOT NULL,
+          action VARCHAR(64) NOT NULL,
+          target_type VARCHAR(64) NOT NULL,
+          target_id VARCHAR(255) NULL,
+          details JSON NULL,
+          created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          INDEX idx_audit_logs_created_at (created_at),
+          INDEX idx_audit_logs_actor (actor_role, actor_id),
+          INDEX idx_audit_logs_action (action),
+          INDEX idx_audit_logs_target (target_type, target_id)
+        )
+      `);
+    },
+  },
+  {
+    id: '006_audit_view_event_idempotency',
+    async up(conn) {
+      const [columns] = await conn.query(
+        `SELECT COUNT(*) AS count FROM information_schema.columns
+         WHERE table_schema = DATABASE() AND table_name = 'audit_logs' AND column_name = 'event_key'`
+      );
+      if (!columns[0].count) {
+        await conn.query('ALTER TABLE audit_logs ADD COLUMN event_key VARCHAR(64) NULL');
+      }
+
+      const [indexes] = await conn.query(
+        `SELECT COUNT(*) AS count FROM information_schema.statistics
+         WHERE table_schema = DATABASE() AND table_name = 'audit_logs' AND index_name = 'uq_audit_logs_event_key'`
+      );
+      if (!indexes[0].count) {
+        await conn.query('CREATE UNIQUE INDEX uq_audit_logs_event_key ON audit_logs (event_key)');
+      }
+    },
+  },
 ];
 
 async function migrateDatabase() {

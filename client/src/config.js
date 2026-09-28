@@ -20,6 +20,8 @@ const config = {
     Supervisor: {
       Profile: `${ROOT_URL}supervisor/profile`,
       ProfilePicture: `${ROOT_URL}supervisor/profile-picture`,
+      Customers: `${ROOT_URL}supervisor/customers`,
+      AuditLogs: `${ROOT_URL}supervisor/audit-logs`,
     },
     Signup: {
       Request: `${ROOT_URL}signup/request`,

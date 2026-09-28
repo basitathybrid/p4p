@@ -82,6 +82,24 @@ CREATE TABLE IF NOT EXISTS transactions (
   CONSTRAINT fk_transactions_application FOREIGN KEY (phone) REFERENCES applications(phone)
 );
 
+CREATE TABLE IF NOT EXISTS audit_logs (
+  id          BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  actor_id    BIGINT UNSIGNED NULL,
+  actor_name  VARCHAR(255) NOT NULL,
+  actor_role  VARCHAR(32) NOT NULL,
+  action      VARCHAR(64) NOT NULL,
+  target_type VARCHAR(64) NOT NULL,
+  target_id   VARCHAR(255) NULL,
+  details     JSON NULL,
+  event_key   VARCHAR(64) NULL,
+  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_audit_logs_event_key (event_key),
+  INDEX idx_audit_logs_created_at (created_at),
+  INDEX idx_audit_logs_actor (actor_role, actor_id),
+  INDEX idx_audit_logs_action (action),
+  INDEX idx_audit_logs_target (target_type, target_id)
+);
+
 CREATE TABLE IF NOT EXISTS customer_usage (
   phone                       VARCHAR(20) PRIMARY KEY,
   lifetime_transaction_volume DECIMAL(18, 2) NOT NULL DEFAULT 0,

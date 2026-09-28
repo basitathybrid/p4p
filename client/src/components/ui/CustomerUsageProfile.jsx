@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import config from '../../config'
 import { StatusBadge } from './Icon'
 
@@ -26,6 +26,8 @@ export function CustomerUsageProfile({ phone, role }) {
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const pageSelection = useRef({ phone, page: 1 })
+  const currentPage = pageSelection.current.phone === phone ? pageSelection.current.page : 1
 
   useEffect(() => {
     if (!phone) {
@@ -36,10 +38,16 @@ export function CustomerUsageProfile({ phone, role }) {
 
     const token = localStorage.getItem(role === 'supervisor' ? 'p4p_supervisor_token' : 'p4p_basic_token')
     const controller = new AbortController()
+    const signature = `${role}:${phone}:${currentPage}`
+    let eventKey = pageSelection.current.signature === signature ? pageSelection.current.eventKey : ''
+    if (!eventKey) {
+      eventKey = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`
+      pageSelection.current = { ...pageSelection.current, signature, eventKey }
+    }
     setLoading(true)
     setError('')
 
-    fetch(`${config.REST_API.Internal.CustomerProfile(phone)}?page=${page}`, {
+    fetch(`${config.REST_API.Internal.CustomerProfile(phone)}?page=${currentPage}&viewId=${encodeURIComponent(eventKey)}`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
       signal: controller.signal,
     })
@@ -56,14 +64,17 @@ export function CustomerUsageProfile({ phone, role }) {
       })
 
     return () => controller.abort()
-  }, [phone, role, page])
-
-  useEffect(() => setPage(1), [phone])
+  }, [phone, role, currentPage])
 
   if (!phone) return null
 
   const usage = profile?.usage || {}
-  const pagination = profile?.pagination || { page: 1, pageCount: 1, total: 0 }
+  const pagination = profile?.pagination || { page: currentPage, pageCount: 1, total: 0 }
+
+  const changePage = (nextPage) => {
+    pageSelection.current = { phone, page: nextPage }
+    setPage(nextPage)
+  }
 
   return (
     <section className="internal-profile-usage" aria-label="Customer usage and transaction history">
@@ -117,9 +128,9 @@ export function CustomerUsageProfile({ phone, role }) {
       </div>
       {pagination.pageCount > 1 && (
         <div className="internal-history-pagination">
-          <button type="button" onClick={() => setPage((current) => Math.max(1, current - 1))} disabled={loading || page <= 1}>Previous</button>
+          <button type="button" onClick={() => changePage(Math.max(1, currentPage - 1))} disabled={loading || currentPage <= 1}>Previous</button>
           <span>Page {pagination.page} of {pagination.pageCount}</span>
-          <button type="button" onClick={() => setPage((current) => Math.min(pagination.pageCount, current + 1))} disabled={loading || page >= pagination.pageCount}>Next</button>
+          <button type="button" onClick={() => changePage(Math.min(pagination.pageCount, currentPage + 1))} disabled={loading || currentPage >= pagination.pageCount}>Next</button>
         </div>
       )}
     </section>
