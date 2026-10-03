@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import roles from '../../data/roles'
 import config from '../../config'
 import { useProfilePicture } from '../../useProfilePicture'
+import { notifyAuditLogUpdated } from '../../auditEvents'
 import welcomeBannerArt from '../../assets/play4perks-banner-art.png'
 import { AppLayout } from '../layout/AppLayout'
 import { Icon, StatusBadge, TierBadge } from '../ui/Icon'
@@ -111,8 +112,10 @@ function BasicUserTable() {
   const [editForm, setEditForm] = useState({ name: '', email: '', playerMobileId: '', playerId: '' })
   const [savingProfile, setSavingProfile] = useState(false)
   const [profileStatus, setProfileStatus] = useState({ type: 'idle', message: '' })
+  const [changingStatus, setChangingStatus] = useState(false)
   const selectedCustomer = customers.find((customer) => customer.phone === selectedPhone) || null
   const canEditProfile = selectedCustomer?.status === 'approved'
+  const canChangeStatus = selectedCustomer && selectedCustomer.status !== 'pending_review'
 
   useEffect(() => {
     setEditForm({
@@ -184,6 +187,32 @@ function BasicUserTable() {
       setProfileStatus({ type: 'error', message: saveError.message || 'Unable to save profile changes.' })
     } finally {
       setSavingProfile(false)
+    }
+  }
+
+  const changeCustomerStatus = async () => {
+    if (!selectedCustomer || changingStatus) return
+    const nextStatus = selectedCustomer.status === 'approved' ? 'rejected' : 'approved'
+    setChangingStatus(true)
+    setProfileStatus({ type: 'idle', message: '' })
+    try {
+      const token = localStorage.getItem('p4p_basic_token')
+      const response = await fetch(config.REST_API.Internal.CustomerStatus(selectedCustomer.phone), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ status: nextStatus }),
+      })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.message || 'Unable to update customer status.')
+      setCustomers((current) => current.map((customer) => (
+        customer.phone === selectedCustomer.phone ? { ...customer, status: nextStatus } : customer
+      )))
+      setProfileStatus({ type: 'success', message: nextStatus === 'approved' ? 'Customer status set to approved.' : 'Customer status set to rejected.' })
+      notifyAuditLogUpdated()
+    } catch (statusError) {
+      setProfileStatus({ type: 'error', message: statusError.message || 'Unable to update customer status.' })
+    } finally {
+      setChangingStatus(false)
     }
   }
 
@@ -270,6 +299,11 @@ function BasicUserTable() {
         <div className="profile-panel-card card-light">
           <div className="panel-title-row"><h3>{selectedCustomer?.name || 'Select a customer'}</h3><button className="close-btn">×</button></div>
           <div className="customer-phone">{formatPhone(selectedCustomer?.phone)}</div>
+          {canChangeStatus && (
+            <button type="button" className="clear-button basic-status-toggle" onClick={changeCustomerStatus} disabled={changingStatus}>
+              {changingStatus ? 'Updating...' : selectedCustomer.status === 'approved' ? 'Mark Rejected' : 'Mark Approved'}
+            </button>
+          )}
           {canEditProfile ? (
             <div className="basic-profile-edit">
               <label className="basic-profile-field"><span>Name</span><input value={editForm.name} onChange={(event) => updateEditForm('name', event.target.value)} /></label>

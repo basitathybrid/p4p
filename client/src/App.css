@@ -3972,6 +3972,8 @@ button {
 .supervisor-customer-detail-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
 .supervisor-customer-detail-header h3 { margin: 5px 0 8px; color: #f6ebff; }
 .supervisor-customer-detail-meta { display: flex; align-items: center; gap: 12px; color: rgba(228, 214, 255, 0.72); }
+.supervisor-status-toggle { height: 28px; border: 1px solid rgba(230, 85, 85, 0.5); border-radius: 6px; background: rgba(230, 85, 85, 0.14); color: #ff9d9d; font-size: 0.66rem; font-weight: 700; padding: 0 10px; cursor: pointer; }
+.supervisor-status-toggle:disabled { cursor: wait; opacity: 0.6; }
 .supervisor-customer-detail-close { display: grid; width: 36px; height: 36px; place-items: center; border: 1px solid rgba(199, 103, 255, 0.3); border-radius: 8px; background: rgba(16, 3, 46, 0.8); color: #f6ebff; cursor: pointer; }
 .supervisor-customer-detail-close svg { width: 18px; height: 18px; }
 .supervisor-profile-edit { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)) auto; gap: 10px; align-items: end; margin-top: 16px; padding: 12px; border: 1px solid rgba(160, 70, 222, 0.26); border-radius: 10px; background: rgba(16, 3, 46, 0.42); }
@@ -5184,6 +5186,7 @@ button {
 .basic-shell .basic-profile-field span { color: rgba(228, 214, 255, 0.72); font-size: 0.66rem; }
 .basic-shell .basic-profile-field input { height: 31px; border: 1px solid rgba(160, 68, 236, 0.5); border-radius: 6px; background: rgba(16, 3, 46, 0.92); color: #efe7ff; font-size: 0.68rem; padding: 0 8px; }
 .basic-shell .basic-profile-save { width: 100%; margin-top: 2px; }
+.basic-shell .basic-status-toggle { width: 100%; margin: 2px 0 10px; border-color: rgba(230, 85, 85, 0.5); background: rgba(230, 85, 85, 0.14); color: #ff9d9d; }
 
 .basic-shell .basic-threshold-panel { margin-top: 14px; border: 1px solid rgba(203, 79, 255, 0.64); border-radius: 12px; padding: 12px; }
 .basic-shell .status-banner.success { background: rgba(43, 182, 115, 0.16); border-color: rgba(43, 182, 115, 0.45); color: #6fe3ab; }

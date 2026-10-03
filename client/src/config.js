@@ -37,6 +37,7 @@ const config = {
     },
     Internal: {
       CustomerProfile: (phone) => `${ROOT_URL}internal/customers/${encodeURIComponent(phone)}/profile`,
+      CustomerStatus: (phone) => `${ROOT_URL}internal/customers/${encodeURIComponent(phone)}/status`,
     },
     Uploads: {
       Transactions: `${ROOT_URL}uploads/transactions`,

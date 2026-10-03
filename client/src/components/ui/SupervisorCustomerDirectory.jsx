@@ -86,6 +86,7 @@ export function SupervisorCustomerDirectory() {
   const [editForm, setEditForm] = useState({ name: '', email: '', playerMobileId: '', playerId: '' })
   const [savingProfile, setSavingProfile] = useState(false)
   const [profileStatus, setProfileStatus] = useState({ type: 'idle', message: '' })
+  const [changingStatus, setChangingStatus] = useState(false)
   const selectedCustomer = customers.find((customer) => customer.phone === selectedPhone) || null
   const canEditProfile = selectedCustomer?.status === 'approved'
 
@@ -165,6 +166,32 @@ export function SupervisorCustomerDirectory() {
       setProfileStatus({ type: 'error', message: saveError.message || 'Unable to save profile changes.' })
     } finally {
       setSavingProfile(false)
+    }
+  }
+
+  const changeCustomerStatus = async () => {
+    if (!selectedCustomer || changingStatus) return
+    const nextStatus = selectedCustomer.status === 'approved' ? 'rejected' : 'approved'
+    setChangingStatus(true)
+    setProfileStatus({ type: 'idle', message: '' })
+    try {
+      const token = localStorage.getItem('p4p_supervisor_token')
+      const response = await fetch(config.REST_API.Internal.CustomerStatus(selectedCustomer.phone), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ status: nextStatus }),
+      })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.message || 'Unable to update customer status.')
+      setCustomers((current) => current.map((customer) => (
+        customer.phone === selectedCustomer.phone ? { ...customer, status: nextStatus } : customer
+      )))
+      setProfileStatus({ type: 'success', message: nextStatus === 'approved' ? 'Customer status set to approved.' : 'Customer status set to rejected.' })
+      notifyAuditLogUpdated()
+    } catch (statusError) {
+      setProfileStatus({ type: 'error', message: statusError.message || 'Unable to update customer status.' })
+    } finally {
+      setChangingStatus(false)
     }
   }
 
@@ -277,6 +304,9 @@ export function SupervisorCustomerDirectory() {
                 <div className="supervisor-customer-detail-meta">
                   <span>{formatPhone(selectedCustomer.phone)}</span>
                   <StatusBadge text={statusLabel(selectedCustomer.status)} tone={selectedCustomer.status === 'approved' ? 'green' : selectedCustomer.status === 'rejected' ? 'red' : 'info'} />
+                  <button type="button" className="supervisor-status-toggle" onClick={changeCustomerStatus} disabled={changingStatus}>
+                    {changingStatus ? 'Updating...' : selectedCustomer.status === 'approved' ? 'Mark Rejected' : 'Mark Approved'}
+                  </button>
                 </div>
               </div>
               <button type="button" className="supervisor-customer-detail-close" aria-label="Close customer details" onClick={() => setSelectedPhone('')}>

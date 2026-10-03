@@ -877,6 +877,42 @@ app.get('/api/internal/customers/:phone/profile', requireAuth(), async (req, res
   }
 });
 
+app.patch('/api/internal/customers/:phone/status', requireAuth(), async (req, res) => {
+  if (!['basic', 'supervisor'].includes(req.user.role)) {
+    return res.status(403).json({ success: false, code: 'FORBIDDEN', message: 'Access denied.' });
+  }
+
+  const status = String(req.body?.status || '').toLowerCase();
+  if (!['approved', 'rejected'].includes(status)) {
+    return res.status(400).json({ success: false, code: 'INVALID_STATUS', message: 'Status must be approved or rejected.' });
+  }
+
+  const phone = normalizePhone(req.params.phone);
+  try {
+    const [rows] = await db.query('SELECT status FROM applications WHERE phone = ? LIMIT 1', [phone]);
+    if (!rows[0]) {
+      return res.status(404).json({ success: false, code: 'NOT_FOUND', message: 'Customer profile not found.' });
+    }
+    if (rows[0].status === status) {
+      return res.status(200).json({ success: true, status });
+    }
+
+    await db.query(
+      'UPDATE applications SET status = ?, reviewed_at = NOW(), review_decision = ?, review_reviewer = ? WHERE phone = ?',
+      [status, status, req.user.name || req.user.username || 'PayFe Operations', phone]
+    );
+    await writeAuditLog(req.user, 'customer_status_changed', 'customer', phone, {
+      previousStatus: rows[0].status,
+      newStatus: status,
+      reason: 'manual_status_change',
+    });
+    return res.status(200).json({ success: true, status });
+  } catch (error) {
+    console.error('update customer status failed:', error);
+    return res.status(500).json({ success: false, code: 'SERVER_ERROR', message: 'Unable to update customer status.' });
+  }
+});
+
 app.get('/api/tier-thresholds', requireAuth(), async (req, res) => {
   if (!['supervisor', 'basic'].includes(req.user.role)) {
     return res.status(403).json({ success: false, code: 'FORBIDDEN', message: 'Access denied.' });
