@@ -26,6 +26,78 @@ function statusLabel(value) {
   return String(value || '').replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
 }
 
+const DEFAULT_THRESHOLDS = [
+  { name: 'Bronze', minimum: 0 },
+  { name: 'Silver', minimum: 5000 },
+  { name: 'Gold', minimum: 10000 },
+  { name: 'Diamond', minimum: 15000 },
+]
+
+function BasicTierThresholds() {
+  const [thresholds, setThresholds] = useState(DEFAULT_THRESHOLDS)
+  const [saving, setSaving] = useState(false)
+  const [status, setStatus] = useState({ type: 'idle', message: '' })
+
+  useEffect(() => {
+    const token = localStorage.getItem('p4p_basic_token')
+    fetch(config.REST_API.Tiers.Thresholds, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+      .then((response) => response.json())
+      .then((data) => { if (data.success) setThresholds(data.thresholds) })
+      .catch(() => {})
+  }, [])
+
+  const saveThresholds = async () => {
+    setSaving(true)
+    setStatus({ type: 'idle', message: '' })
+    try {
+      const token = localStorage.getItem('p4p_basic_token')
+      const response = await fetch(config.REST_API.Tiers.Thresholds, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ thresholds }),
+      })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.message || 'Unable to save tier thresholds.')
+      setStatus({ type: 'success', message: 'Tier thresholds updated.' })
+    } catch (saveError) {
+      setStatus({ type: 'error', message: saveError.message || 'Unable to save tier thresholds.' })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <section className="basic-threshold-panel card-light" aria-labelledby="basic-threshold-title">
+      <div className="threshold-header">
+        <h3 id="basic-threshold-title">Lifetime Tier Thresholds</h3>
+        <button type="button" className="clear-button" onClick={saveThresholds} disabled={saving}>
+          {saving ? 'Saving...' : 'Save Thresholds'}
+        </button>
+      </div>
+      {status.message && <div className={`status-banner ${status.type}`} role="alert">{status.message}</div>}
+      <div className="threshold-list basic-threshold-list">
+        {thresholds.map((tier) => (
+          <div key={tier.name} className="threshold-item basic-threshold-item">
+            <div className="threshold-copy">
+              <div className="threshold-name">{tier.name}</div>
+              <div className="threshold-meta">Lifetime volume minimum</div>
+            </div>
+            <input
+              className="threshold-amount basic-threshold-amount"
+              type="number"
+              min="0"
+              value={tier.minimum}
+              onChange={(event) => setThresholds((current) => current.map((item) => item.name === tier.name ? { ...item, minimum: Number(event.target.value) } : item))}
+            />
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
 function BasicUserTable() {
   const [customers, setCustomers] = useState([])
   const [selectedPhone, setSelectedPhone] = useState('')
@@ -266,8 +338,7 @@ export function BasicUserDashboard() {
       <div className="view-only-alert">
         <Icon name="info" /> Select an approved customer to edit profile details.
       </div>
-      <BasicUserTable />
-    </>
+      <BasicUserTable />      <BasicTierThresholds />    </>
   )
 }
 

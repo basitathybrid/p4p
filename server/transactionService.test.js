@@ -4,6 +4,53 @@ const assert = require('node:assert/strict');
 const db = require('./db');
 const { importTransactions } = require('./transactionService');
 
+test('upload recalculates reward tier from the updated lifetime volume', async () => {
+  const tierUpdates = [];
+  const originalGetConnection = db.getConnection;
+  const connection = {
+    async beginTransaction() {},
+    async commit() {},
+    async rollback() {},
+    release() {},
+    async query(sql, params) {
+      if (sql.includes('FROM tier_thresholds')) {
+        return [[
+          { name: 'Bronze', minimum: 0 },
+          { name: 'Silver', minimum: 5000 },
+          { name: 'Gold', minimum: 10000 },
+          { name: 'Diamond', minimum: 15000 },
+        ]];
+      }
+      if (sql.includes("FROM applications WHERE status = 'approved'")) return [[{ phone: '19195550147' }]];
+      if (sql.includes('SELECT transaction_id FROM transactions')) return [[]];
+      if (sql.includes('INSERT INTO transactions')) return [{}];
+      if (sql.includes('INSERT INTO customer_usage')) return [{}];
+      if (sql.includes('SELECT lifetime_transaction_volume FROM customer_usage')) return [[{ lifetime_transaction_volume: 5600 }]];
+      if (sql.includes('UPDATE customer_usage SET reward_tier')) {
+        tierUpdates.push(params);
+        return [{}];
+      }
+      throw new Error(`Unexpected query: ${sql}`);
+    },
+  };
+
+  db.getConnection = async () => connection;
+  try {
+    const csv = [
+      'NO,MOBILE_NO,TRANSACTION_ID,TRANSACTION_TYPE,TRANSACTION_DATETIME,AMOUNT,STATUS',
+      '1,9195550147,send-completed,send,2026-09-27,5600,Completed',
+    ].join('\n');
+
+    const result = await importTransactions(csv);
+
+    assert.equal(result.success, true);
+    assert.equal(tierUpdates.length, 1);
+    assert.deepEqual(tierUpdates[0], ['Silver', '19195550147']);
+  } finally {
+    db.getConnection = originalGetConnection;
+  }
+});
+
 test('lifetime volume includes only completed send transactions', async () => {
   const aggregateQueries = [];
   const auditEvents = [];

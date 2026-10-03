@@ -5092,7 +5092,8 @@ button {
 
 .basic-shell .stat-compact,
 .basic-shell .table-panel,
-.basic-shell .profile-panel-card {
+.basic-shell .profile-panel-card,
+.basic-shell .basic-threshold-panel {
   border-color: rgba(203, 79, 255, 0.64);
   background: linear-gradient(145deg, rgba(31, 7, 67, 0.96), rgba(11, 3, 32, 0.98));
   box-shadow: inset 0 0 18px rgba(187, 62, 255, 0.11), 0 0 16px rgba(141, 28, 236, 0.16);
@@ -5183,6 +5184,18 @@ button {
 .basic-shell .basic-profile-field span { color: rgba(228, 214, 255, 0.72); font-size: 0.66rem; }
 .basic-shell .basic-profile-field input { height: 31px; border: 1px solid rgba(160, 68, 236, 0.5); border-radius: 6px; background: rgba(16, 3, 46, 0.92); color: #efe7ff; font-size: 0.68rem; padding: 0 8px; }
 .basic-shell .basic-profile-save { width: 100%; margin-top: 2px; }
+
+.basic-shell .basic-threshold-panel { margin-top: 14px; border: 1px solid rgba(203, 79, 255, 0.64); border-radius: 12px; padding: 12px; }
+.basic-shell .status-banner.success { background: rgba(43, 182, 115, 0.16); border-color: rgba(43, 182, 115, 0.45); color: #6fe3ab; }
+.basic-shell .status-banner.error { background: rgba(230, 85, 85, 0.14); border-color: rgba(230, 85, 85, 0.45); color: #ff9d9d; }
+.basic-shell .basic-threshold-panel .threshold-header h3 { margin: 0; color: #f6ebff; font-size: 0.92rem; }
+.basic-shell .basic-threshold-list { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 10px; }
+.basic-shell .basic-threshold-item { grid-template-columns: minmax(0, 1fr) 90px; padding: 8px; border-color: rgba(160, 70, 222, 0.26); background: rgba(16, 3, 46, 0.42); }
+.basic-shell .basic-threshold-item .threshold-name, .basic-shell .basic-threshold-item .threshold-meta { color: #f6ebff; }
+.basic-shell .basic-threshold-item .threshold-meta { color: rgba(228, 214, 255, 0.72); font-size: 0.6rem; }
+.basic-shell .basic-threshold-amount { width: 90px; border-color: rgba(160, 68, 236, 0.5); background: rgba(16, 3, 46, 0.92); color: #efe7ff; font-size: 0.68rem; }
+@media (max-width: 960px) { .basic-shell .basic-threshold-list { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 767px) { .basic-shell .basic-threshold-list { grid-template-columns: minmax(0, 1fr); } }
 
 .basic-shell .data-table-header { margin-top: 10px; font-size: 0.68rem; }
 .basic-shell .data-table, .basic-shell .profile-panel-card table { margin-top: 6px; }
