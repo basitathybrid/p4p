@@ -1045,7 +1045,11 @@ app.get('/api/review/applications/:phone', requireSupervisorAuth, async (req, re
   }
 });
 
-app.patch('/api/review/applications/:phone', requireSupervisorAuth, async (req, res) => {
+app.patch('/api/review/applications/:phone', requireAuth(), async (req, res) => {
+  if (!['basic', 'supervisor'].includes(req.user.role)) {
+    return res.status(403).json({ success: false, code: 'FORBIDDEN', message: 'Access denied.' });
+  }
+
   try {
     const previousApplication = await getApplication(req.params.phone);
     const result = await updateApplication(req.params.phone, req.body || {});
@@ -1055,7 +1059,7 @@ app.patch('/api/review/applications/:phone', requireSupervisorAuth, async (req, 
       return res.status(statusCode).json({
         ...result,
         message: result.code === 'REVIEW_CLOSED'
-          ? 'Submitted customer data can only be edited before a decision is made.'
+          ? 'Only pending or approved customer profiles can be edited.'
           : result.code === 'INVALID_PLAYER_ID'
             ? 'Player ID must be numeric.'
           : 'Application not found.',

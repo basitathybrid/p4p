@@ -117,6 +117,43 @@ const MIGRATIONS = [
       }
     },
   },
+  {
+    id: '007_post_approval_profile_edits',
+    async up(conn) {
+      await conn.query('DROP PROCEDURE IF EXISTS sp_update_application');
+      await conn.query(`
+        CREATE PROCEDURE sp_update_application(
+          IN p_phone VARCHAR(20),
+          IN p_name VARCHAR(255),
+          IN p_email VARCHAR(255),
+          IN p_player_mobile_id VARCHAR(64),
+          IN p_player_id BIGINT UNSIGNED,
+          IN p_facebook VARCHAR(255),
+          IN p_instagram VARCHAR(255),
+          IN p_telegram VARCHAR(255),
+          OUT p_result_code VARCHAR(32)
+        )
+        BEGIN
+          DECLARE v_status VARCHAR(20) DEFAULT NULL;
+
+          SELECT status INTO v_status FROM applications WHERE phone = p_phone FOR UPDATE;
+
+          IF v_status IS NULL THEN
+            SET p_result_code = 'NOT_FOUND';
+          ELSEIF v_status NOT IN ('pending_review', 'approved') THEN
+            SET p_result_code = 'REVIEW_CLOSED';
+          ELSE
+            UPDATE applications
+            SET name = p_name, email = p_email, player_mobile_id = p_player_mobile_id, player_id = p_player_id,
+                facebook = p_facebook, instagram = p_instagram, telegram = p_telegram
+            WHERE phone = p_phone;
+
+            SET p_result_code = 'OK';
+          END IF;
+        END
+      `);
+    },
+  },
 ];
 
 async function migrateDatabase() {

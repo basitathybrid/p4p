@@ -3974,6 +3974,13 @@ button {
 .supervisor-customer-detail-meta { display: flex; align-items: center; gap: 12px; color: rgba(228, 214, 255, 0.72); }
 .supervisor-customer-detail-close { display: grid; width: 36px; height: 36px; place-items: center; border: 1px solid rgba(199, 103, 255, 0.3); border-radius: 8px; background: rgba(16, 3, 46, 0.8); color: #f6ebff; cursor: pointer; }
 .supervisor-customer-detail-close svg { width: 18px; height: 18px; }
+.supervisor-profile-edit { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)) auto; gap: 10px; align-items: end; margin-top: 16px; padding: 12px; border: 1px solid rgba(160, 70, 222, 0.26); border-radius: 10px; background: rgba(16, 3, 46, 0.42); }
+.supervisor-profile-edit-field { display: flex; flex-direction: column; gap: 4px; }
+.supervisor-profile-edit-field span { color: rgba(228, 214, 255, 0.72); font-size: 0.66rem; }
+.supervisor-profile-edit-field input { height: 32px; border: 1px solid rgba(160, 68, 236, 0.5); border-radius: 6px; background: rgba(16, 3, 46, 0.92); color: #efe7ff; font-size: 0.7rem; padding: 0 8px; }
+.supervisor-profile-save { height: 32px; border: 1px solid rgba(199, 81, 255, 0.64); border-radius: 7px; background: linear-gradient(135deg, #8e23ee, #bb42ff); color: #fff; font-size: 0.7rem; font-weight: 700; padding: 0 14px; }
+.supervisor-profile-save:disabled { cursor: wait; opacity: 0.6; }
+@media (max-width: 760px) { .supervisor-profile-edit { grid-template-columns: minmax(0, 1fr); } }
 .supervisor-audit-section { width: min(100%, 1200px); margin: 0 auto; box-sizing: border-box; }
 .supervisor-audit-panel { min-width: 0; padding: 16px; border-radius: 16px; }
 .supervisor-audit-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
@@ -5170,6 +5177,12 @@ button {
   color: #fff;
   font-size: 0.68rem;
 }
+
+.basic-shell .basic-profile-edit { border-top: 1px solid rgba(160, 70, 222, 0.26); border-bottom: 1px solid rgba(160, 70, 222, 0.26); padding: 10px 0; margin-bottom: 12px; }
+.basic-shell .basic-profile-field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
+.basic-shell .basic-profile-field span { color: rgba(228, 214, 255, 0.72); font-size: 0.66rem; }
+.basic-shell .basic-profile-field input { height: 31px; border: 1px solid rgba(160, 68, 236, 0.5); border-radius: 6px; background: rgba(16, 3, 46, 0.92); color: #efe7ff; font-size: 0.68rem; padding: 0 8px; }
+.basic-shell .basic-profile-save { width: 100%; margin-top: 2px; }
 
 .basic-shell .data-table-header { margin-top: 10px; font-size: 0.68rem; }
 .basic-shell .data-table, .basic-shell .profile-panel-card table { margin-top: 6px; }

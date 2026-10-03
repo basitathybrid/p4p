@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useState } from 'react'
 import config from '../../config'
+import { notifyAuditLogUpdated } from '../../auditEvents'
 import { CustomerUsageProfile } from './CustomerUsageProfile'
 import { Icon, StatusBadge, TierBadge } from './Icon'
 
@@ -82,7 +83,21 @@ export function SupervisorCustomerDirectory() {
   const [error, setError] = useState('')
   const [exporting, setExporting] = useState('')
   const [exportError, setExportError] = useState('')
+  const [editForm, setEditForm] = useState({ name: '', email: '', playerMobileId: '', playerId: '' })
+  const [savingProfile, setSavingProfile] = useState(false)
+  const [profileStatus, setProfileStatus] = useState({ type: 'idle', message: '' })
   const selectedCustomer = customers.find((customer) => customer.phone === selectedPhone) || null
+  const canEditProfile = selectedCustomer?.status === 'approved'
+
+  useEffect(() => {
+    setEditForm({
+      name: selectedCustomer?.name || '',
+      email: selectedCustomer?.email || '',
+      playerMobileId: selectedCustomer?.playerMobileId || '',
+      playerId: selectedCustomer?.playerId || '',
+    })
+    setProfileStatus({ type: 'idle', message: '' })
+  }, [selectedPhone])
 
   useEffect(() => {
     const token = localStorage.getItem('p4p_supervisor_token')
@@ -126,6 +141,32 @@ export function SupervisorCustomerDirectory() {
 
   const updateFilter = (key, value) => setFilters((current) => ({ ...current, [key]: value }))
   const clearFilters = () => setFilters({ ...EMPTY_FILTERS })
+  const updateEditForm = (key, value) => setEditForm((current) => ({ ...current, [key]: value }))
+
+  const saveProfileChanges = async () => {
+    if (!selectedCustomer || savingProfile) return
+    setSavingProfile(true)
+    setProfileStatus({ type: 'idle', message: '' })
+    try {
+      const token = localStorage.getItem('p4p_supervisor_token')
+      const response = await fetch(config.REST_API.Review.GetApplicationByPhone(selectedCustomer.phone), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify(editForm),
+      })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.message || 'Unable to save profile changes.')
+      setCustomers((current) => current.map((customer) => (
+        customer.phone === selectedCustomer.phone ? { ...customer, ...data.application } : customer
+      )))
+      setProfileStatus({ type: 'success', message: 'Profile changes saved.' })
+      notifyAuditLogUpdated()
+    } catch (saveError) {
+      setProfileStatus({ type: 'error', message: saveError.message || 'Unable to save profile changes.' })
+    } finally {
+      setSavingProfile(false)
+    }
+  }
 
   const exportCustomers = async () => {
     setExporting('table')
@@ -242,6 +283,18 @@ export function SupervisorCustomerDirectory() {
                 <Icon name="x" />
               </button>
             </header>
+            {canEditProfile && (
+              <div className="supervisor-profile-edit">
+                <label className="supervisor-profile-edit-field"><span>Name</span><input value={editForm.name} onChange={(event) => updateEditForm('name', event.target.value)} /></label>
+                <label className="supervisor-profile-edit-field"><span>Email Address</span><input type="email" value={editForm.email} onChange={(event) => updateEditForm('email', event.target.value)} /></label>
+                <label className="supervisor-profile-edit-field"><span>Player Mobile ID</span><input value={editForm.playerMobileId} onChange={(event) => updateEditForm('playerMobileId', event.target.value)} /></label>
+                <label className="supervisor-profile-edit-field"><span>Player ID</span><input value={editForm.playerId} onChange={(event) => updateEditForm('playerId', event.target.value)} /></label>
+                <button type="button" className="supervisor-profile-save" onClick={saveProfileChanges} disabled={savingProfile}>
+                  {savingProfile ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            )}
+            {profileStatus.message && <div className={`status-banner ${profileStatus.type}`} role="alert">{profileStatus.message}</div>}
             <CustomerUsageProfile phone={selectedCustomer.phone} role="supervisor" />
           </section>
         </div>

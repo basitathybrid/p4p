@@ -184,7 +184,7 @@ BEGIN
 
   IF v_status IS NULL THEN
     SET p_result_code = 'NOT_FOUND';
-  ELSEIF v_status <> 'pending_review' THEN
+  ELSEIF v_status NOT IN ('pending_review', 'approved') THEN
     SET p_result_code = 'REVIEW_CLOSED';
   ELSE
     UPDATE applications

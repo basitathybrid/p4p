@@ -36,7 +36,21 @@ function BasicUserTable() {
     minVolume: '', maxVolume: '', minCount: '', maxCount: '',
     lastActivityFrom: '', lastActivityTo: '', signupFrom: '', signupTo: '',
   })
+  const [editForm, setEditForm] = useState({ name: '', email: '', playerMobileId: '', playerId: '' })
+  const [savingProfile, setSavingProfile] = useState(false)
+  const [profileStatus, setProfileStatus] = useState({ type: 'idle', message: '' })
   const selectedCustomer = customers.find((customer) => customer.phone === selectedPhone) || null
+  const canEditProfile = selectedCustomer?.status === 'approved'
+
+  useEffect(() => {
+    setEditForm({
+      name: selectedCustomer?.name || '',
+      email: selectedCustomer?.email || '',
+      playerMobileId: selectedCustomer?.playerMobileId || '',
+      playerId: selectedCustomer?.playerId || '',
+    })
+    setProfileStatus({ type: 'idle', message: '' })
+  }, [selectedPhone])
 
   useEffect(() => {
     const token = localStorage.getItem('p4p_basic_token')
@@ -75,6 +89,31 @@ function BasicUserTable() {
     minVolume: '', maxVolume: '', minCount: '', maxCount: '',
     lastActivityFrom: '', lastActivityTo: '', signupFrom: '', signupTo: '',
   })
+  const updateEditForm = (key, value) => setEditForm((current) => ({ ...current, [key]: value }))
+
+  const saveProfileChanges = async () => {
+    if (!selectedCustomer || savingProfile) return
+    setSavingProfile(true)
+    setProfileStatus({ type: 'idle', message: '' })
+    try {
+      const token = localStorage.getItem('p4p_basic_token')
+      const response = await fetch(config.REST_API.Review.GetApplicationByPhone(selectedCustomer.phone), {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify(editForm),
+      })
+      const data = await response.json()
+      if (!response.ok) throw new Error(data.message || 'Unable to save profile changes.')
+      setCustomers((current) => current.map((customer) => (
+        customer.phone === selectedCustomer.phone ? { ...customer, ...data.application } : customer
+      )))
+      setProfileStatus({ type: 'success', message: 'Profile changes saved.' })
+    } catch (saveError) {
+      setProfileStatus({ type: 'error', message: saveError.message || 'Unable to save profile changes.' })
+    } finally {
+      setSavingProfile(false)
+    }
+  }
 
   return (
     <div className="basic-user-layout">
@@ -159,11 +198,24 @@ function BasicUserTable() {
         <div className="profile-panel-card card-light">
           <div className="panel-title-row"><h3>{selectedCustomer?.name || 'Select a customer'}</h3><button className="close-btn">×</button></div>
           <div className="customer-phone">{formatPhone(selectedCustomer?.phone)}</div>
-          <div className="info-block">
-            <div className="info-row"><span>Email Address</span><strong>{selectedCustomer?.email || '—'}</strong></div>
-            <div className="info-row"><span>Player Mobile ID</span><strong>{selectedCustomer?.playerMobileId || '—'}</strong></div>
-            <div className="info-row"><span>Player ID</span><strong>{selectedCustomer?.playerId || '—'}</strong></div>
-          </div>
+          {canEditProfile ? (
+            <div className="basic-profile-edit">
+              <label className="basic-profile-field"><span>Name</span><input value={editForm.name} onChange={(event) => updateEditForm('name', event.target.value)} /></label>
+              <label className="basic-profile-field"><span>Email Address</span><input type="email" value={editForm.email} onChange={(event) => updateEditForm('email', event.target.value)} /></label>
+              <label className="basic-profile-field"><span>Player Mobile ID</span><input value={editForm.playerMobileId} onChange={(event) => updateEditForm('playerMobileId', event.target.value)} /></label>
+              <label className="basic-profile-field"><span>Player ID</span><input value={editForm.playerId} onChange={(event) => updateEditForm('playerId', event.target.value)} /></label>
+              {profileStatus.message && <div className={`status-banner ${profileStatus.type}`} role="alert">{profileStatus.message}</div>}
+              <button type="button" className="clear-button basic-profile-save" onClick={saveProfileChanges} disabled={savingProfile}>
+                {savingProfile ? 'Saving...' : 'Save Changes'}
+              </button>
+            </div>
+          ) : (
+            <div className="info-block">
+              <div className="info-row"><span>Email Address</span><strong>{selectedCustomer?.email || '—'}</strong></div>
+              <div className="info-row"><span>Player Mobile ID</span><strong>{selectedCustomer?.playerMobileId || '—'}</strong></div>
+              <div className="info-row"><span>Player ID</span><strong>{selectedCustomer?.playerId || '—'}</strong></div>
+            </div>
+          )}
 
           <CustomerUsageProfile phone={selectedCustomer?.phone} role="basic" />
         </div>
@@ -191,7 +243,7 @@ export function BasicUserDashboard() {
             <span className="basic-profile-upload-action" aria-hidden="true">+</span>
           </label>
           <div className="basic-banner-text">
-            <span className="basic-banner-kicker">Read-only workspace</span>
+            <span className="basic-banner-kicker">PayFe operations workspace</span>
             <h1>PayFe Basic User</h1>
             <p>View approved customer profiles, rewards tiers, and transaction activity.</p>
             {profileImageError && <span className="profile-photo-error" role="alert">{profileImageError}</span>}
@@ -212,7 +264,7 @@ export function BasicUserDashboard() {
         ))}
       </div>
       <div className="view-only-alert">
-        <Icon name="info" /> Customer profiles are read-only. Use approval status filters to narrow the list.
+        <Icon name="info" /> Select an approved customer to edit profile details.
       </div>
       <BasicUserTable />
     </>
