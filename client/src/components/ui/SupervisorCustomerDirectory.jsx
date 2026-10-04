@@ -177,12 +177,12 @@ export function SupervisorCustomerDirectory() {
     try {
       const token = localStorage.getItem('p4p_supervisor_token')
       const response = await fetch(config.REST_API.Internal.CustomerStatus(selectedCustomer.phone), {
-        method: 'PATCH',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         body: JSON.stringify({ status: nextStatus }),
       })
-      const data = await response.json()
-      if (!response.ok) throw new Error(data.message || 'Unable to update customer status.')
+      const data = await response.json().catch(() => null)
+      if (!response.ok || !data) throw new Error(data?.message || 'Unable to update customer status. Make sure the API server is running the latest code.')
       setCustomers((current) => current.map((customer) => (
         customer.phone === selectedCustomer.phone ? { ...customer, status: nextStatus } : customer
       )))

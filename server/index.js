@@ -877,7 +877,10 @@ app.get('/api/internal/customers/:phone/profile', requireAuth(), async (req, res
   }
 });
 
-app.patch('/api/internal/customers/:phone/status', requireAuth(), async (req, res) => {
+// POST is accepted too because some reverse proxies block PATCH.
+app.all('/api/internal/customers/:phone/status', (req, res, next) => (
+  ['PATCH', 'POST'].includes(req.method) ? next() : res.status(405).json({ success: false, code: 'METHOD_NOT_ALLOWED', message: 'Method not allowed.' })
+), requireAuth(), async (req, res) => {
   if (!['basic', 'supervisor'].includes(req.user.role)) {
     return res.status(403).json({ success: false, code: 'FORBIDDEN', message: 'Access denied.' });
   }
