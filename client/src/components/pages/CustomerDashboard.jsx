@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import roles from '../../data/roles'
 import config from '../../config'
@@ -11,6 +11,7 @@ import ultraPandaImg from '../../assets/games/ultra-panda.png'
 import vblinkImg from '../../assets/games/vblink.png'
 import { AppLayout } from '../layout/AppLayout'
 import { Icon, StatusBadge } from '../ui/Icon'
+import { GlobalLoader } from '../ui/GlobalLoader'
 
 const POPULAR_GAMES = [
   { name: 'Golden Dragon', image: goldenDragonImg },
@@ -38,6 +39,16 @@ function formatActivityDate(value) {
     })}`
 }
 
+function formatActivityDateParts(value) {
+  if (!value) return { date: 'No activity yet', time: '' }
+
+  const date = new Date(value)
+  return {
+    date: date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' }),
+    time: date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true }),
+  }
+}
+
 function CustomerOverview({ application, usage, profileImage }) {
   const tier = usage?.reward_tier || 'Bronze'
   const lifetimeVolume = Number(usage?.lifetime_transaction_volume || 0)
@@ -47,8 +58,8 @@ function CustomerOverview({ application, usage, profileImage }) {
   const progressPercent = nextTier
     ? Math.min(100, Math.max(0, ((lifetimeVolume - currentTierMinimum) / (Number(nextTier.minimum) - currentTierMinimum)) * 100))
     : 100
-  const profileName = application?.name || 'Ava Johnson'
-  const avatarText = profileName.split(' ').map((part) => part[0]).slice(0, 2).join('') || 'AJ'
+  const profileName = application?.name || ''
+  const avatarText = profileName.split(' ').map((part) => part[0]).slice(0, 2).join('')
 
   return (
     <div className="customer-overview">
@@ -69,9 +80,9 @@ function CustomerOverview({ application, usage, profileImage }) {
             <span className="profile-online-dot" aria-label="Online" />
           </div>
           <div className="profile-header-copy">
-            <h3>{profileName}</h3>
+            <h3>{profileName || ' '}</h3>
             <span className="gold-badge"><Icon name="star" /> {tier} Member</span>
-            <span className="profile-subtext">Player ID: {application?.playerId || 'P4P-2048'}</span>
+            <span className="profile-subtext">Player ID: {application?.playerId || '—'}</span>
           </div>
         </div>
 
@@ -79,27 +90,27 @@ function CustomerOverview({ application, usage, profileImage }) {
           <div className="profile-detail-item">
             <span className="detail-icon"><Icon name="user" /></span>
             <span className="detail-label">Name</span>
-            <strong>{profileName}</strong>
+            <strong>{profileName || '—'}</strong>
           </div>
           <div className="profile-detail-item">
             <span className="detail-icon"><Icon name="phone" /></span>
             <span className="detail-label">Phone Number</span>
-            <strong>{application?.phone || '+1 (919) 555-0147'}</strong>
+            <strong>{application?.phone || '—'}</strong>
           </div>
           <div className="profile-detail-item">
             <span className="detail-icon"><Icon name="mail" /></span>
             <span className="detail-label">Email Address</span>
-            <strong>{application?.email || 'ava.johnson@example.com'}</strong>
+            <strong>{application?.email || '—'}</strong>
           </div>
           <div className="profile-detail-item">
             <span className="detail-icon"><Icon name="info" /></span>
             <span className="detail-label">Player Mobile ID</span>
-            <strong>{application?.playerMobileId || 'M-656-987-989'}</strong>
+            <strong>{application?.playerMobileId || '—'}</strong>
           </div>
           <div className="profile-detail-item">
             <span className="detail-icon"><Icon name="info" /></span>
             <span className="detail-label">Player ID</span>
-            <strong>{application?.playerId || 'P4P-2048'}</strong>
+            <strong>{application?.playerId || '—'}</strong>
           </div>
           <div className="profile-detail-item">
             <span className="detail-icon"><Icon name="info" /></span>
@@ -185,41 +196,38 @@ function CustomerOverview({ application, usage, profileImage }) {
 }
 
 function CustomerApprovedDashboard({ application, usage, transactions }) {
-  const accountName = application?.name || 'Ava Johnson'
+  const accountName = application?.name || ''
   const profileImageKey = `p4p_customer_profile_image_${application?.phone || 'demo'}`
-  const { profileImage, uploadProfilePicture, uploading, error: profileImageError } = useProfilePicture('customer', profileImageKey)
-  const profileInputRef = useRef(null)
+  const { profileImage } = useProfilePicture('customer', profileImageKey)
 
-  const handleProfileImageChange = (event) => {
-    const [file] = event.target.files || []
-    uploadProfilePicture(file)
-    event.target.value = ''
-  }
-
-  const dashboardStats = roles.customer.metrics.map((metric) => ({
-    ...metric,
-    value: metric.label === 'Lifetime Transaction Volume' && usage?.lifetime_transaction_volume != null
-      ? formatCurrency(usage.lifetime_transaction_volume)
-      : metric.value,
-    icon: metric.label.includes('Wallet') ? 'wallet' : metric.label.includes('Rewards') ? 'trophy' : metric.label.includes('Last Activity') ? 'history' : 'table',
-  }))
+  const dashboardStats = roles.customer.metrics.map((metric) => {
+    const isLastActivity = metric.label.includes('Last Activity')
+    return {
+      ...metric,
+      label: isLastActivity ? 'Recent Activity' : metric.label,
+      value: metric.label === 'Lifetime Transaction Volume' && usage?.lifetime_transaction_volume != null
+        ? formatCurrency(usage.lifetime_transaction_volume)
+        : metric.value,
+      activityParts: isLastActivity ? formatActivityDateParts(usage?.last_activity_at) : null,
+      change: isLastActivity ? '' : metric.change,
+      icon: metric.label.includes('Wallet') ? 'wallet' : metric.label.includes('Rewards') ? 'trophy' : isLastActivity ? 'history' : 'table',
+    }
+  })
 
   return (
     <div className="customer-dashboard-shell">
       <div className="dashboard-inner">
         <section className="welcome-banner">
           <div className="welcome-brand">
-            <label className="welcome-profile-upload" title="Upload profile picture">
-              <input ref={profileInputRef} type="file" accept="image/jpeg,image/png,image/webp" disabled={uploading} onChange={handleProfileImageChange} />
+            <div className="welcome-profile-upload">
               {profileImage ? <img src={profileImage} alt={`${accountName}'s profile`} /> : <Icon name="user" />}
-              <span className="welcome-profile-upload-action" aria-hidden="true">+</span>
-            </label>
+            </div>
             <div className="welcome-brand-tagline">Profile Picture</div>
           </div>
 
           <div className="welcome-copy">
             <h1>
-              Welcome back, <span className="gold-name">{accountName}</span>! 👋
+              {accountName ? <>Welcome back, <span className="gold-name">{accountName}</span>! 👋</> : 'Welcome back! 👋'}
             </h1>
             <p>Play more. Earn more. Get exclusive perks with Play4Perks.</p>
           </div>
@@ -240,8 +248,15 @@ function CustomerApprovedDashboard({ application, usage, transactions }) {
                 <span>{metric.label}</span>
                 <span className={`mini-icon${metric.icon === 'wallet' ? ' mini-icon-wallet' : ''}`}><Icon name={metric.icon} /></span>
               </div>
-              <div className="stat-value">{metric.value}</div>
-              <div className="stat-change">{metric.change}</div>
+              {metric.activityParts ? (
+                <div className="stat-value stat-activity">
+                  <span className="stat-activity-date">{metric.activityParts.date}</span>
+                  {metric.activityParts.time && <span className="stat-activity-time">{metric.activityParts.time}</span>}
+                </div>
+              ) : (
+                <div className="stat-value">{metric.value}</div>
+              )}
+              {!metric.activityParts && <div className="stat-change">{metric.change}</div>}
             </div>
           ))}
         </section>
@@ -249,7 +264,7 @@ function CustomerApprovedDashboard({ application, usage, transactions }) {
         <section className="lower-grid">
           <div className="panel-card transactions-card">
             <div className="panel-header">
-              <h3>Recent Transactions</h3>
+              <h3>Recent Transactions <span className="transaction-count">({usage?.transaction_count ?? transactions.length} total)</span></h3>
               <button type="button" className="view-link">View All →</button>
             </div>
 
@@ -311,11 +326,7 @@ function CustomerApprovedDashboard({ application, usage, transactions }) {
                 ? 'Your new profile picture has been uploaded successfully.'
                 : 'Keep your profile up to date for a safer and smoother experience.'}</p>
               {profileImage && <span className="profile-photo-status"><Icon name="check" /> Profile photo saved</span>}
-              {profileImageError && <span className="profile-photo-error" role="alert">{profileImageError}</span>}
             </div>
-            <button type="button" className="cta-action" disabled={uploading} onClick={() => profileInputRef.current?.click()}>
-              {uploading ? 'Saving...' : profileImage ? 'Change Photo' : 'Update Profile'} →
-            </button>
           </div>
 
           <div className="panel-card cta-banner referral-cta">
@@ -443,7 +454,7 @@ export function CustomerDashboard() {
   }, [navigate])
 
   if (state.loading) {
-    return <p className="otp-label">Loading your account...</p>
+    return <GlobalLoader message="Loading your account..." />
   }
 
   if (state.error) {

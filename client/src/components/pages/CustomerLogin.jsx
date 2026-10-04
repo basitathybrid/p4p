@@ -156,7 +156,7 @@ export function CustomerLoginPage() {
           <form onSubmit={handlePasswordReset} className="signup-form customer-login-form" noValidate>
             <label>
               Account Email Address
-              <span className="login-input-wrap"><Icon name="mail" /><input type="email" value={resetEmail} onChange={(event) => { setResetEmail(event.target.value); if (resetError) setResetError('') }} placeholder="name@example.com" className={resetError ? 'input-error' : ''} /></span>
+              <span className="login-input-wrap"><Icon name="mail" /><input type="email" id="resetEmail" name="resetEmail" autoComplete="email" value={resetEmail} onChange={(event) => { setResetEmail(event.target.value); if (resetError) setResetError('') }} placeholder="name@example.com" className={resetError ? 'input-error' : ''} /></span>
               {resetError && <span className="field-error-msg">{resetError}</span>}
             </label>
             <div className="signup-actions">
@@ -169,14 +169,14 @@ export function CustomerLoginPage() {
             <div className="login-field">
               <label>
                 Phone Number
-                <span className="login-input-wrap"><Icon name="phone" /><input name="identifier" value={form.identifier} onChange={handleChange} placeholder="5551234567" className={fieldErrors.identifier ? 'input-error' : ''} /></span>
+                <span className="login-input-wrap"><Icon name="phone" /><input name="identifier" autoComplete="username" value={form.identifier} onChange={handleChange} placeholder="5551234567" className={fieldErrors.identifier ? 'input-error' : ''} /></span>
                 {fieldErrors.identifier && <span className="field-error-msg">{fieldErrors.identifier}</span>}
               </label>
             </div>
             <div className="login-field">
               <label>
                 Password
-                <span className="login-input-wrap"><Icon name="lock" /><input type={showPassword ? 'text' : 'password'} name="password" value={form.password} onChange={handleChange} placeholder="Your password" className={fieldErrors.password ? 'input-error' : ''} /><button type="button" className="password-toggle" aria-label={showPassword ? 'Hide password' : 'Show password'} onClick={() => setShowPassword((visible) => !visible)}><Icon name={showPassword ? 'eye' : 'eyeOff'} /></button></span>
+                <span className="login-input-wrap"><Icon name="lock" /><input type={showPassword ? 'text' : 'password'} name="password" autoComplete="current-password" value={form.password} onChange={handleChange} placeholder="Your password" className={fieldErrors.password ? 'input-error' : ''} /><button type="button" className="password-toggle" aria-label={showPassword ? 'Hide password' : 'Show password'} onClick={() => setShowPassword((visible) => !visible)}><Icon name={showPassword ? 'eye' : 'eyeOff'} /></button></span>
                 {fieldErrors.password && <span className="field-error-msg">{fieldErrors.password}</span>}
               </label>
             </div>

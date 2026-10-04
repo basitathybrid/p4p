@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import roles from '../../data/roles'
 import config from '../../config'
 import { useProfilePicture } from '../../useProfilePicture'
-import { notifyAuditLogUpdated } from '../../auditEvents'
+import { notifyAuditLogUpdated, notifyCustomerStatusUpdated } from '../../auditEvents'
 import welcomeBannerArt from '../../assets/play4perks-banner-art.png'
 import { AppLayout } from '../layout/AppLayout'
 import { Icon, StatusBadge, TierBadge } from '../ui/Icon'
@@ -209,6 +209,7 @@ function BasicUserTable() {
       )))
       setProfileStatus({ type: 'success', message: nextStatus === 'approved' ? 'Customer status set to approved.' : 'Customer status set to rejected.' })
       notifyAuditLogUpdated()
+      notifyCustomerStatusUpdated()
     } catch (statusError) {
       setProfileStatus({ type: 'error', message: statusError.message || 'Unable to update customer status.' })
     } finally {
@@ -331,28 +332,26 @@ function BasicUserTable() {
 }
 
 export function BasicUserDashboard() {
-  const { profileImage, uploadProfilePicture, uploading, error: profileImageError } = useProfilePicture('basic')
+  const { profileImage } = useProfilePicture('basic')
+  const [profileImageFailed, setProfileImageFailed] = useState(false)
 
-  const handleProfileImageChange = (event) => {
-    const [file] = event.target.files || []
-    uploadProfilePicture(file)
-    event.target.value = ''
-  }
+  useEffect(() => {
+    setProfileImageFailed(false)
+  }, [profileImage])
 
   return (
     <>
       <div className="page-header compact">
         <div className="basic-banner-copy">
-          <label className="basic-profile-upload" title="Upload profile picture">
-            <input type="file" accept="image/jpeg,image/png,image/webp" disabled={uploading} onChange={handleProfileImageChange} />
-            {profileImage ? <img src={profileImage} alt="Basic user profile" /> : <Icon name="user" />}
-            <span className="basic-profile-upload-action" aria-hidden="true">+</span>
-          </label>
+          <div className="basic-profile-upload">
+            {profileImage && !profileImageFailed
+              ? <img src={profileImage} alt="Basic user profile" onError={() => setProfileImageFailed(true)} />
+              : <Icon name="user" />}
+          </div>
           <div className="basic-banner-text">
             <span className="basic-banner-kicker">PayFe operations workspace</span>
             <h1>PayFe Basic User</h1>
             <p>View approved customer profiles, rewards tiers, and transaction activity.</p>
-            {profileImageError && <span className="profile-photo-error" role="alert">{profileImageError}</span>}
           </div>
         </div>
         <div className="basic-banner-art" aria-hidden="true">

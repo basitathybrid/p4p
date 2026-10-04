@@ -8,7 +8,7 @@ import { AppLayout } from '../layout/AppLayout'
 import { Icon, StatCard, StatusBadge, TierBadge } from '../ui/Icon'
 import { SupervisorCustomerDirectory } from '../ui/SupervisorCustomerDirectory'
 import { SupervisorAuditLog } from '../ui/SupervisorAuditLog'
-import { notifyAuditLogUpdated } from '../../auditEvents'
+import { notifyAuditLogUpdated, notifyCustomerStatusUpdated } from '../../auditEvents'
 
 const SUPERVISOR_HEADERS = () => ({
   'Content-Type': 'application/json',
@@ -223,6 +223,7 @@ function SupervisorTable({ onStatusCountsChange }) {
       const data = await response.json()
       if (!response.ok) throw new Error(data.message || 'Unable to save tier thresholds.')
       setThresholdStatus({ type: 'success', message: 'Tier thresholds updated.' })
+      notifyAuditLogUpdated()
     } catch (error) {
       setThresholdStatus({ type: 'error', message: error.message })
     } finally {
@@ -242,6 +243,7 @@ function SupervisorTable({ onStatusCountsChange }) {
       if (!response.ok) throw new Error(data.message || 'Unable to update customer tier.')
       await loadManualTierCustomers()
       setTierStatus({ type: 'success', message: 'Customer tier updated.' })
+      notifyAuditLogUpdated()
     } catch (error) {
       setTierStatus({ type: 'error', message: error.message })
     }
@@ -258,6 +260,7 @@ function SupervisorTable({ onStatusCountsChange }) {
       if (!response.ok) throw new Error(data.message || 'Unable to revert customer tier.')
       await loadManualTierCustomers()
       setTierStatus({ type: 'success', message: `Customer returned to automatic ${data.tier} tier.` })
+      notifyAuditLogUpdated()
     } catch (error) {
       setTierStatus({ type: 'error', message: error.message || 'Unable to revert customer tier.' })
     } finally {
@@ -362,6 +365,7 @@ function SupervisorTable({ onStatusCountsChange }) {
       }
 
       await loadApplications()
+      notifyCustomerStatusUpdated()
       setStatus({ type: 'success', message: `Application ${decision}. SMS notification ${data.sms?.mode === 'twilio' ? 'sent' : 'mocked'}.` })
     } catch (error) {
       setStatus({ type: 'error', message: error.message || `Unable to mark application ${decision}.` })
@@ -395,6 +399,7 @@ function SupervisorTable({ onStatusCountsChange }) {
       const workbook = buildApprovedCustomersWorkbook(approvedApplications)
       XLSX.writeFile(workbook, `approved-customers-${timestamp}.xlsx`)
       setStatus({ type: 'success', message: `Exported ${approvedApplications.length} approved customer(s).` })
+      notifyAuditLogUpdated()
     } catch (error) {
       setStatus({ type: 'error', message: error.message || 'Unable to export approved applications.' })
     } finally {
@@ -447,6 +452,7 @@ function SupervisorTable({ onStatusCountsChange }) {
         details: [`${data.totals.duplicates} duplicate(s) skipped, ${data.totals.unmatched} unmatched, ${data.totals.invalid} invalid.`],
       })
       await loadManualTierCustomers()
+      notifyAuditLogUpdated()
     } catch (error) {
       setUploadStatus({ type: 'error', message: error.message || 'Unable to process transaction upload.', details: [] })
     } finally {
@@ -517,33 +523,33 @@ function SupervisorTable({ onStatusCountsChange }) {
           <div className="detail-grid">
             <label>
               <span>Name</span>
-              <input name="name" value={form.name} onChange={handleChange} disabled={!selectedApplication || saving} />
+              <input name="name" autoComplete="name" value={form.name} onChange={handleChange} disabled={!selectedApplication || saving} />
             </label>
             <div><span>Phone Number</span><strong>{form.phone || '-'}</strong></div>
             <label>
               <span>Email Address</span>
-              <input name="email" value={form.email} onChange={handleChange} disabled={!selectedApplication || saving} />
+              <input name="email" type="email" autoComplete="email" value={form.email} onChange={handleChange} disabled={!selectedApplication || saving} />
             </label>
             <label>
               <span>Player Mobile ID</span>
-              <input name="playerMobileId" value={form.playerMobileId} onChange={handleChange} disabled={!selectedApplication || saving} />
+              <input name="playerMobileId" autoComplete="off" value={form.playerMobileId} onChange={handleChange} disabled={!selectedApplication || saving} />
             </label>
             <label>
               <span>Player ID</span>
-              <input type="number" name="playerId" value={form.playerId} onChange={handleChange} min="1" step="1" className={playerIdError ? 'input-error' : ''} disabled={!selectedApplication || saving} />
+              <input type="number" name="playerId" autoComplete="off" value={form.playerId} onChange={handleChange} min="1" step="1" className={playerIdError ? 'input-error' : ''} disabled={!selectedApplication || saving} />
               {playerIdError && <span className="field-error-msg">{playerIdError}</span>}
             </label>
             <label>
               <span>Facebook Link</span>
-              <input name="facebook" value={form.facebook} onChange={handleChange} disabled={!selectedApplication || saving} />
+              <input name="facebook" autoComplete="off" value={form.facebook} onChange={handleChange} disabled={!selectedApplication || saving} />
             </label>
             <label>
               <span>Instagram Handle</span>
-              <input name="instagram" value={form.instagram} onChange={handleChange} disabled={!selectedApplication || saving} />
+              <input name="instagram" autoComplete="off" value={form.instagram} onChange={handleChange} disabled={!selectedApplication || saving} />
             </label>
             <label>
               <span>Telegram ID</span>
-              <input name="telegram" value={form.telegram} onChange={handleChange} disabled={!selectedApplication || saving} />
+              <input name="telegram" autoComplete="off" value={form.telegram} onChange={handleChange} disabled={!selectedApplication || saving} />
             </label>
             <div><span>Status</span><strong>{form.status}</strong></div>
           </div>
@@ -709,13 +715,7 @@ function SupervisorTable({ onStatusCountsChange }) {
 
 export function SupervisorDashboard() {
   const [statusCounts, setStatusCounts] = useState({ submitted: 0, pendingReview: 0, decided: 0, active: 0 })
-  const { profileImage, uploadProfilePicture, uploading, error: profileImageError } = useProfilePicture('supervisor')
-
-  const handleProfileImageChange = (event) => {
-    const [file] = event.target.files || []
-    uploadProfilePicture(file)
-    event.target.value = ''
-  }
+  const { profileImage } = useProfilePicture('supervisor')
 
   const stats = [
     {
@@ -741,16 +741,13 @@ export function SupervisorDashboard() {
     <>
       <div className="page-header compact">
         <div className="page-header-title-wrap">
-          <label className="supervisor-profile-upload" title="Upload profile picture">
-            <input type="file" accept="image/jpeg,image/png,image/webp" disabled={uploading} onChange={handleProfileImageChange} />
+          <div className="supervisor-profile-upload">
             {profileImage ? <img src={profileImage} alt="Supervisor profile" /> : <Icon name="user" />}
-            <span className="supervisor-profile-upload-action" aria-hidden="true">+</span>
-          </label>
+          </div>
           <div className="page-header-copy">
             <span className="page-header-kicker">Executive oversight</span>
             <h1>PayFe Supervisor</h1>
             <p>Review applications, audits and customer data.</p>
-            {profileImageError && <span className="profile-photo-error" role="alert">{profileImageError}</span>}
           </div>
         </div>
         <div className="supervisor-banner-art" aria-hidden="true">

@@ -37,12 +37,18 @@ export function AppLayout({ route, children }) {
     email: currentRole.user.email || 'ava.johnson@example.com',
   })
   const { profileImage: toolbarProfileImage } = useProfilePicture(route)
+  const [toolbarImageFailed, setToolbarImageFailed] = useState(false)
   const [showChangePassword, setShowChangePassword] = useState(false)
   const [passwordForm, setPasswordForm] = useState({ oldPassword: '', newPassword: '', confirmPassword: '' })
   const [passwordFieldErrors, setPasswordFieldErrors] = useState({})
   const [passwordStatus, setPasswordStatus] = useState({ type: 'idle', message: '' })
   const [changingPassword, setChangingPassword] = useState(false)
+  const [showPasswords, setShowPasswords] = useState({ oldPassword: false, newPassword: false, confirmPassword: false })
   const menuRef = useRef(null)
+
+  useEffect(() => {
+    setToolbarImageFailed(false)
+  }, [toolbarProfileImage])
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -65,6 +71,21 @@ export function AppLayout({ route, children }) {
       const name = localStorage.getItem('p4p_supervisor_name')
       if (name) {
         nextDisplayUser.name = name
+      }
+      setDisplayUser(nextDisplayUser)
+      return
+    }
+
+    if (route === 'basic') {
+      const name = localStorage.getItem('p4p_basic_username')
+      const email = localStorage.getItem('p4p_basic_email')
+      if (name) {
+        nextDisplayUser.name = name
+      }
+      if (email) {
+        nextDisplayUser.email = email
+      } else {
+        delete nextDisplayUser.email
       }
       setDisplayUser(nextDisplayUser)
       return
@@ -101,6 +122,7 @@ export function AppLayout({ route, children }) {
     localStorage.removeItem('p4p_customer_phone')
     localStorage.removeItem('p4p_basic_token')
     localStorage.removeItem('p4p_basic_username')
+    localStorage.removeItem('p4p_basic_email')
     navigate(route === 'supervisor' ? '/supervisorlogin' : route === 'basic' ? '/basicuserlogin' : '/login')
   }
 
@@ -109,6 +131,7 @@ export function AppLayout({ route, children }) {
     setPasswordForm({ oldPassword: '', newPassword: '', confirmPassword: '' })
     setPasswordFieldErrors({})
     setPasswordStatus({ type: 'idle', message: '' })
+    setShowPasswords({ oldPassword: false, newPassword: false, confirmPassword: false })
     setShowChangePassword(true)
   }
 
@@ -272,8 +295,8 @@ export function AppLayout({ route, children }) {
             <div className="toolbar-user-menu" ref={menuRef}>
               <button className="toolbar-user" onClick={() => setMenuOpen((open) => !open)}>
                 <div className="toolbar-avatar">
-                  {toolbarProfileImage
-                    ? <img src={toolbarProfileImage} alt="" />
+                  {toolbarProfileImage && !toolbarImageFailed
+                    ? <img src={toolbarProfileImage} alt="" onError={() => setToolbarImageFailed(true)} />
                     : displayUser.name.split(' ').map((part) => part[0]).slice(0, 2).join('')}
                 </div>
                 <div className="toolbar-user-text">
@@ -312,38 +335,71 @@ export function AppLayout({ route, children }) {
             <form onSubmit={handleChangePasswordSubmit} className="signup-form" noValidate>
               <label>
                 Current Password
-                <input
-                  type="password"
-                  name="oldPassword"
-                  value={passwordForm.oldPassword}
-                  onChange={handlePasswordFieldChange}
-                  placeholder="Enter current password"
-                  className={passwordFieldErrors.oldPassword ? 'input-error' : ''}
-                />
+                <span className="password-input-wrap">
+                  <input
+                    type={showPasswords.oldPassword ? 'text' : 'password'}
+                    name="oldPassword"
+                    autoComplete="current-password"
+                    value={passwordForm.oldPassword}
+                    onChange={handlePasswordFieldChange}
+                    placeholder="Enter current password"
+                    className={passwordFieldErrors.oldPassword ? 'input-error' : ''}
+                  />
+                  <button
+                    type="button"
+                    className="password-toggle"
+                    aria-label={showPasswords.oldPassword ? 'Hide password' : 'Show password'}
+                    onClick={() => setShowPasswords((current) => ({ ...current, oldPassword: !current.oldPassword }))}
+                  >
+                    <Icon name={showPasswords.oldPassword ? 'eye' : 'eyeOff'} />
+                  </button>
+                </span>
                 {passwordFieldErrors.oldPassword && <span className="field-error-msg">{passwordFieldErrors.oldPassword}</span>}
               </label>
               <label>
                 New Password
-                <input
-                  type="password"
-                  name="newPassword"
-                  value={passwordForm.newPassword}
-                  onChange={handlePasswordFieldChange}
-                  placeholder="At least 8 characters"
-                  className={passwordFieldErrors.newPassword ? 'input-error' : ''}
-                />
+                <span className="password-input-wrap">
+                  <input
+                    type={showPasswords.newPassword ? 'text' : 'password'}
+                    name="newPassword"
+                    autoComplete="new-password"
+                    value={passwordForm.newPassword}
+                    onChange={handlePasswordFieldChange}
+                    placeholder="At least 8 characters"
+                    className={passwordFieldErrors.newPassword ? 'input-error' : ''}
+                  />
+                  <button
+                    type="button"
+                    className="password-toggle"
+                    aria-label={showPasswords.newPassword ? 'Hide password' : 'Show password'}
+                    onClick={() => setShowPasswords((current) => ({ ...current, newPassword: !current.newPassword }))}
+                  >
+                    <Icon name={showPasswords.newPassword ? 'eye' : 'eyeOff'} />
+                  </button>
+                </span>
                 {passwordFieldErrors.newPassword && <span className="field-error-msg">{passwordFieldErrors.newPassword}</span>}
               </label>
               <label>
                 Confirm New Password
-                <input
-                  type="password"
-                  name="confirmPassword"
-                  value={passwordForm.confirmPassword}
-                  onChange={handlePasswordFieldChange}
-                  placeholder="Re-enter new password"
-                  className={passwordFieldErrors.confirmPassword ? 'input-error' : ''}
-                />
+                <span className="password-input-wrap">
+                  <input
+                    type={showPasswords.confirmPassword ? 'text' : 'password'}
+                    name="confirmPassword"
+                    autoComplete="new-password"
+                    value={passwordForm.confirmPassword}
+                    onChange={handlePasswordFieldChange}
+                    placeholder="Re-enter new password"
+                    className={passwordFieldErrors.confirmPassword ? 'input-error' : ''}
+                  />
+                  <button
+                    type="button"
+                    className="password-toggle"
+                    aria-label={showPasswords.confirmPassword ? 'Hide password' : 'Show password'}
+                    onClick={() => setShowPasswords((current) => ({ ...current, confirmPassword: !current.confirmPassword }))}
+                  >
+                    <Icon name={showPasswords.confirmPassword ? 'eye' : 'eyeOff'} />
+                  </button>
+                </span>
                 {passwordFieldErrors.confirmPassword && <span className="field-error-msg">{passwordFieldErrors.confirmPassword}</span>}
               </label>
 

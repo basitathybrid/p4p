@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import config from '../../config'
-import { notifyAuditLogUpdated } from '../../auditEvents'
+import { notifyAuditLogUpdated, CUSTOMER_STATUS_UPDATED_EVENT } from '../../auditEvents'
 import { StatusBadge } from './Icon'
 
 function formatCurrency(value) {
@@ -27,8 +27,15 @@ export function CustomerUsageProfile({ phone, role }) {
   const [page, setPage] = useState(1)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [refreshVersion, setRefreshVersion] = useState(0)
   const pageSelection = useRef({ phone, page: 1 })
   const currentPage = pageSelection.current.phone === phone ? pageSelection.current.page : 1
+
+  useEffect(() => {
+    const refresh = () => setRefreshVersion((current) => current + 1)
+    window.addEventListener(CUSTOMER_STATUS_UPDATED_EVENT, refresh)
+    return () => window.removeEventListener(CUSTOMER_STATUS_UPDATED_EVENT, refresh)
+  }, [])
 
   useEffect(() => {
     if (!phone) {
@@ -66,7 +73,7 @@ export function CustomerUsageProfile({ phone, role }) {
       })
 
     return () => controller.abort()
-  }, [phone, role, currentPage])
+  }, [phone, role, currentPage, refreshVersion])
 
   if (!phone) return null
 

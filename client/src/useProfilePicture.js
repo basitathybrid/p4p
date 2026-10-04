@@ -42,7 +42,6 @@ export function useProfilePicture(role, legacyKey) {
           if (upload.ok) {
             localStorage.removeItem(legacyKey)
             response = await fetch(url, { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' })
-            window.dispatchEvent(new CustomEvent('p4p:profile-picture-updated', { detail: { role } }))
           } else {
             setError('Unable to sync the existing profile picture. Please upload it again.')
           }

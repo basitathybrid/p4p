@@ -93,14 +93,14 @@ export function SupervisorLoginPage() {
           <div className="login-field">
             <label>
               Username or Email
-              <span className="login-input-wrap"><Icon name="user" /><input name="identifier" value={form.identifier} onChange={handleChange} placeholder="Enter your username or email" className={fieldErrors.identifier ? 'input-error' : ''} /></span>
+              <span className="login-input-wrap"><Icon name="user" /><input name="identifier" autoComplete="username" value={form.identifier} onChange={handleChange} placeholder="Enter your username or email" className={fieldErrors.identifier ? 'input-error' : ''} /></span>
               {fieldErrors.identifier && <span className="field-error-msg">{fieldErrors.identifier}</span>}
             </label>
           </div>
           <div className="login-field">
             <label>
               Password
-              <span className="login-input-wrap"><Icon name="lock" /><input type={showPassword ? 'text' : 'password'} name="password" value={form.password} onChange={handleChange} placeholder="Your password" className={fieldErrors.password ? 'input-error' : ''} /><button type="button" className="password-toggle" aria-label={showPassword ? 'Hide password' : 'Show password'} onClick={() => setShowPassword((visible) => !visible)}><Icon name={showPassword ? 'eye' : 'eyeOff'} /></button></span>
+              <span className="login-input-wrap"><Icon name="lock" /><input type={showPassword ? 'text' : 'password'} name="password" autoComplete="current-password" value={form.password} onChange={handleChange} placeholder="Your password" className={fieldErrors.password ? 'input-error' : ''} /><button type="button" className="password-toggle" aria-label={showPassword ? 'Hide password' : 'Show password'} onClick={() => setShowPassword((visible) => !visible)}><Icon name={showPassword ? 'eye' : 'eyeOff'} /></button></span>
               {fieldErrors.password && <span className="field-error-msg">{fieldErrors.password}</span>}
             </label>
           </div>

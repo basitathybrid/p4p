@@ -245,12 +245,12 @@ export function CustomerSignupPage() {
             <div className="field-row two-up">
               <label>
                 Full Name
-                <span className="signup-input-wrap"><Icon name="user" /><input name="name" value={form.name} onChange={handleChange} placeholder="Enter full name" className={fieldErrors.name ? 'input-error' : ''} /></span>
+                <span className="signup-input-wrap"><Icon name="user" /><input name="name" autoComplete="name" value={form.name} onChange={handleChange} placeholder="Enter full name" className={fieldErrors.name ? 'input-error' : ''} /></span>
                 {fieldErrors.name && <span className="field-error-msg">{fieldErrors.name}</span>}
               </label>
               <label>
                 Phone Number
-                <span className="signup-input-wrap"><Icon name="phone" /><input name="phone" value={form.phone} onChange={handleChange} placeholder="5551234567" className={fieldErrors.phone ? 'input-error' : ''} /></span>
+                <span className="signup-input-wrap"><Icon name="phone" /><input name="phone" autoComplete="tel" value={form.phone} onChange={handleChange} placeholder="5551234567" className={fieldErrors.phone ? 'input-error' : ''} /></span>
                 {fieldErrors.phone && <span className="field-error-msg">{fieldErrors.phone}</span>}
               </label>
             </div>
@@ -258,7 +258,7 @@ export function CustomerSignupPage() {
             <div className="field-row two-up">
               <label>
                 Email Address
-                <span className="signup-input-wrap"><Icon name="mail" /><input type="email" name="email" value={form.email} onChange={handleChange} placeholder="name@example.com" className={fieldErrors.email ? 'input-error' : ''} /></span>
+                <span className="signup-input-wrap"><Icon name="mail" /><input type="email" name="email" autoComplete="email" value={form.email} onChange={handleChange} placeholder="name@example.com" className={fieldErrors.email ? 'input-error' : ''} /></span>
                 {fieldErrors.email && <span className="field-error-msg">{fieldErrors.email}</span>}
               </label>
               <label>
@@ -271,12 +271,12 @@ export function CustomerSignupPage() {
             <div className="field-row two-up">
               <label>
                 Password
-                <span className="signup-input-wrap"><Icon name="lock" /><input type={showPasswords.password ? 'text' : 'password'} name="password" value={form.password} onChange={handleChange} placeholder="At least 8 characters" className={fieldErrors.password ? 'input-error' : ''} /><button type="button" className="password-toggle" aria-label={showPasswords.password ? 'Hide password' : 'Show password'} onClick={() => setShowPasswords((current) => ({ ...current, password: !current.password }))}><Icon name={showPasswords.password ? 'eye' : 'eyeOff'} /></button></span>
+                <span className="signup-input-wrap"><Icon name="lock" /><input type={showPasswords.password ? 'text' : 'password'} name="password" autoComplete="new-password" value={form.password} onChange={handleChange} placeholder="At least 8 characters" className={fieldErrors.password ? 'input-error' : ''} /><button type="button" className="password-toggle" aria-label={showPasswords.password ? 'Hide password' : 'Show password'} onClick={() => setShowPasswords((current) => ({ ...current, password: !current.password }))}><Icon name={showPasswords.password ? 'eye' : 'eyeOff'} /></button></span>
                 {fieldErrors.password && <span className="field-error-msg">{fieldErrors.password}</span>}
               </label>
               <label>
                 Confirm Password
-                <span className="signup-input-wrap"><Icon name="lock" /><input type={showPasswords.confirmPassword ? 'text' : 'password'} name="confirmPassword" value={form.confirmPassword} onChange={handleChange} placeholder="Re-enter password" className={fieldErrors.confirmPassword ? 'input-error' : ''} /><button type="button" className="password-toggle" aria-label={showPasswords.confirmPassword ? 'Hide password' : 'Show password'} onClick={() => setShowPasswords((current) => ({ ...current, confirmPassword: !current.confirmPassword }))}><Icon name={showPasswords.confirmPassword ? 'eye' : 'eyeOff'} /></button></span>
+                <span className="signup-input-wrap"><Icon name="lock" /><input type={showPasswords.confirmPassword ? 'text' : 'password'} name="confirmPassword" autoComplete="new-password" value={form.confirmPassword} onChange={handleChange} placeholder="Re-enter password" className={fieldErrors.confirmPassword ? 'input-error' : ''} /><button type="button" className="password-toggle" aria-label={showPasswords.confirmPassword ? 'Hide password' : 'Show password'} onClick={() => setShowPasswords((current) => ({ ...current, confirmPassword: !current.confirmPassword }))}><Icon name={showPasswords.confirmPassword ? 'eye' : 'eyeOff'} /></button></span>
                 {fieldErrors.confirmPassword && <span className="field-error-msg">{fieldErrors.confirmPassword}</span>}
               </label>
             </div>

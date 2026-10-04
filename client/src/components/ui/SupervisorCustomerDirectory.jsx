@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useState } from 'react'
 import config from '../../config'
-import { notifyAuditLogUpdated } from '../../auditEvents'
+import { notifyAuditLogUpdated, notifyCustomerStatusUpdated } from '../../auditEvents'
 import { CustomerUsageProfile } from './CustomerUsageProfile'
 import { Icon, StatusBadge, TierBadge } from './Icon'
 
@@ -188,6 +188,7 @@ export function SupervisorCustomerDirectory() {
       )))
       setProfileStatus({ type: 'success', message: nextStatus === 'approved' ? 'Customer status set to approved.' : 'Customer status set to rejected.' })
       notifyAuditLogUpdated()
+      notifyCustomerStatusUpdated()
     } catch (statusError) {
       setProfileStatus({ type: 'error', message: statusError.message || 'Unable to update customer status.' })
     } finally {
@@ -315,10 +316,10 @@ export function SupervisorCustomerDirectory() {
             </header>
             {canEditProfile && (
               <div className="supervisor-profile-edit">
-                <label className="supervisor-profile-edit-field"><span>Name</span><input value={editForm.name} onChange={(event) => updateEditForm('name', event.target.value)} /></label>
-                <label className="supervisor-profile-edit-field"><span>Email Address</span><input type="email" value={editForm.email} onChange={(event) => updateEditForm('email', event.target.value)} /></label>
-                <label className="supervisor-profile-edit-field"><span>Player Mobile ID</span><input value={editForm.playerMobileId} onChange={(event) => updateEditForm('playerMobileId', event.target.value)} /></label>
-                <label className="supervisor-profile-edit-field"><span>Player ID</span><input value={editForm.playerId} onChange={(event) => updateEditForm('playerId', event.target.value)} /></label>
+                <label className="supervisor-profile-edit-field"><span>Name</span><input name="name" autoComplete="name" value={editForm.name} onChange={(event) => updateEditForm('name', event.target.value)} /></label>
+                <label className="supervisor-profile-edit-field"><span>Email Address</span><input type="email" name="email" autoComplete="email" value={editForm.email} onChange={(event) => updateEditForm('email', event.target.value)} /></label>
+                <label className="supervisor-profile-edit-field"><span>Player Mobile ID</span><input name="playerMobileId" autoComplete="off" value={editForm.playerMobileId} onChange={(event) => updateEditForm('playerMobileId', event.target.value)} /></label>
+                <label className="supervisor-profile-edit-field"><span>Player ID</span><input name="playerId" autoComplete="off" value={editForm.playerId} onChange={(event) => updateEditForm('playerId', event.target.value)} /></label>
                 <button type="button" className="supervisor-profile-save" onClick={saveProfileChanges} disabled={savingProfile}>
                   {savingProfile ? 'Saving...' : 'Save Changes'}
                 </button>
