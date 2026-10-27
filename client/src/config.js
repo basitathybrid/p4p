@@ -12,6 +12,7 @@ const config = {
     },
     Customer: {
       Session: `${ROOT_URL}customer/session`,
+      Profile: `${ROOT_URL}customer/profile`,
       ProfilePicture: `${ROOT_URL}customer/profile-picture`,
     },
     Basic: {

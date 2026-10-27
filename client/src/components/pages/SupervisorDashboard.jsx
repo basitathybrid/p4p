@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import * as XLSX from 'xlsx'
 import roles, { tierMap } from '../../data/roles'
 import config from '../../config'
@@ -113,17 +113,53 @@ function SupervisorTable({ onStatusCountsChange }) {
   const [savingThresholds, setSavingThresholds] = useState(false)
   const [thresholdStatus, setThresholdStatus] = useState({ type: 'idle', message: '' })
   const [selectedTierCustomer, setSelectedTierCustomer] = useState('')
+  const [tierCustomerDropdownOpen, setTierCustomerDropdownOpen] = useState(false)
+  const [tierCustomerSearch, setTierCustomerSearch] = useState('')
   const [selectedTier, setSelectedTier] = useState('Bronze')
   const [tierStatus, setTierStatus] = useState({ type: 'idle', message: '' })
   const [manualTierCustomers, setManualTierCustomers] = useState([])
   const [loadingManualTierCustomers, setLoadingManualTierCustomers] = useState(true)
   const [manualTierLoadError, setManualTierLoadError] = useState('')
   const [revertingTierPhone, setRevertingTierPhone] = useState('')
+  const tierCustomerPickerRef = useRef(null)
+  const tierCustomerSearchRef = useRef(null)
 
   const selectedApplication = useMemo(
     () => applications.find((item) => item.phone === selectedPhone) || null,
     [applications, selectedPhone],
   )
+
+  const filteredTierCustomers = useMemo(() => {
+    const query = tierCustomerSearch.trim().toLowerCase()
+    if (!query) return approvedCustomers
+    const phoneQuery = query.replace(/\D/g, '')
+    return approvedCustomers.filter((customer) =>
+      `${customer.name || ''} ${customer.phone || ''}`.toLowerCase().includes(query) ||
+      Boolean(phoneQuery) && String(customer.phone || '').replace(/\D/g, '').includes(phoneQuery),
+    )
+  }, [approvedCustomers, tierCustomerSearch])
+
+  useEffect(() => {
+    if (!tierCustomerDropdownOpen) return undefined
+
+    tierCustomerSearchRef.current?.focus()
+
+    const closeOnOutsideClick = (event) => {
+      if (!tierCustomerPickerRef.current?.contains(event.target)) {
+        setTierCustomerDropdownOpen(false)
+      }
+    }
+    const closeOnEscape = (event) => {
+      if (event.key === 'Escape') setTierCustomerDropdownOpen(false)
+    }
+
+    document.addEventListener('mousedown', closeOnOutsideClick)
+    document.addEventListener('keydown', closeOnEscape)
+    return () => {
+      document.removeEventListener('mousedown', closeOnOutsideClick)
+      document.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [tierCustomerDropdownOpen])
 
   const playerIdError = useMemo(() => {
     if (!selectedApplication) return ''
@@ -652,10 +688,59 @@ function SupervisorTable({ onStatusCountsChange }) {
             {tierStatus.message && (
               <div className={`status-banner ${tierStatus.type}`}>{tierStatus.message}</div>
             )}
-            <select value={selectedTierCustomer} onChange={(event) => setSelectedTierCustomer(event.target.value)}>
-              <option value="">Select approved customer</option>
-              {approvedCustomers.map((customer) => <option key={customer.phone} value={customer.phone}>{customer.name}</option>)}
-            </select>
+            <div className="tier-customer-picker" ref={tierCustomerPickerRef}>
+              <button
+                className="tier-customer-picker-trigger"
+                type="button"
+                aria-haspopup="dialog"
+                aria-expanded={tierCustomerDropdownOpen}
+                onClick={() => {
+                  setTierCustomerSearch('')
+                  setTierCustomerDropdownOpen((open) => !open)
+                }}
+              >
+                <span>
+                  {approvedCustomers.find((customer) => customer.phone === selectedTierCustomer)?.name || 'Select approved customer'}
+                </span>
+                <span className="tier-customer-picker-chevron" aria-hidden="true" />
+              </button>
+              {tierCustomerDropdownOpen && (
+                <div className="tier-customer-picker-dropdown" role="dialog" aria-label="Select approved customer">
+                  <input
+                    className="tier-customer-picker-search"
+                    ref={tierCustomerSearchRef}
+                    type="search"
+                    aria-label="Search approved customers"
+                    placeholder="Search by name or phone"
+                    value={tierCustomerSearch}
+                    onChange={(event) => setTierCustomerSearch(event.target.value)}
+                  />
+                  <div className="tier-customer-picker-options" role="listbox" aria-label="Approved customers">
+                    {filteredTierCustomers.length > 0 ? filteredTierCustomers.map((customer) => (
+                      <button
+                        key={customer.phone}
+                        className="tier-customer-picker-option"
+                        type="button"
+                        role="option"
+                        aria-selected={selectedTierCustomer === customer.phone}
+                        onClick={() => {
+                          setSelectedTierCustomer(customer.phone)
+                          setTierCustomerDropdownOpen(false)
+                          setTierCustomerSearch('')
+                        }}
+                      >
+                        <span>{customer.name}</span>
+                        <small>{formatPhone(customer.phone)}</small>
+                      </button>
+                    )) : (
+                      <div className="tier-customer-picker-empty">
+                        {approvedCustomers.length === 0 ? 'No approved customers.' : 'No customers found.'}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
             <select value={selectedTier} onChange={(event) => setSelectedTier(event.target.value)}>
               {['Bronze', 'Silver', 'Gold', 'Diamond'].map((tier) => <option key={tier} value={tier}>{tier}</option>)}
             </select>

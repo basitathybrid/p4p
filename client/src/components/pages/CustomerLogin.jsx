@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import config from '../../config'
 import { Icon } from '../ui/Icon'
+import { UsFlag } from '../ui/UsFlag'
 import play4PerksLogo from '../../assets/play4perks-logo.png'
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -169,7 +170,7 @@ export function CustomerLoginPage() {
             <div className="login-field">
               <label>
                 Phone Number
-                <span className="login-input-wrap"><Icon name="phone" /><input name="identifier" autoComplete="username" value={form.identifier} onChange={handleChange} placeholder="5551234567" className={fieldErrors.identifier ? 'input-error' : ''} /></span>
+                <span className="login-input-wrap"><UsFlag /><input name="identifier" autoComplete="username" value={form.identifier} onChange={handleChange} placeholder="5551234567" className={fieldErrors.identifier ? 'input-error' : ''} /></span>
                 {fieldErrors.identifier && <span className="field-error-msg">{fieldErrors.identifier}</span>}
               </label>
             </div>

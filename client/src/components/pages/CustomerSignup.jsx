@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import config from '../../config'
 import play4PerksLogo from '../../assets/play4perks-logo.png'
 import { Icon } from '../ui/Icon'
+import { UsFlag } from '../ui/UsFlag'
 
 const emptyForm = {
   name: '',
@@ -250,7 +251,7 @@ export function CustomerSignupPage() {
               </label>
               <label>
                 Phone Number
-                <span className="signup-input-wrap"><Icon name="phone" /><input name="phone" autoComplete="tel" value={form.phone} onChange={handleChange} placeholder="5551234567" className={fieldErrors.phone ? 'input-error' : ''} /></span>
+                <span className="signup-input-wrap"><UsFlag /><input name="phone" autoComplete="tel" value={form.phone} onChange={handleChange} placeholder="5551234567" className={fieldErrors.phone ? 'input-error' : ''} /></span>
                 {fieldErrors.phone && <span className="field-error-msg">{fieldErrors.phone}</span>}
               </label>
             </div>

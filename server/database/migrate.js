@@ -154,6 +154,18 @@ const MIGRATIONS = [
       `);
     },
   },
+  {
+    id: '008_supervisor_profile_image',
+    async up(conn) {
+      const [columns] = await conn.query(
+        `SELECT COUNT(*) AS count FROM information_schema.columns
+         WHERE table_schema = DATABASE() AND table_name = 'supervisors' AND column_name = 'profile_image_key'`
+      );
+      if (!columns[0].count) {
+        await conn.query('ALTER TABLE supervisors ADD COLUMN profile_image_key VARCHAR(512) NULL');
+      }
+    },
+  },
 ];
 
 async function migrateDatabase() {

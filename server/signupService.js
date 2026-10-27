@@ -265,7 +265,7 @@ async function updateApplication(phone, updates) {
     name: updates.name !== undefined ? updates.name || '' : existing.name,
     email: updates.email !== undefined ? updates.email || '' : existing.email,
     playerMobileId: updates.playerMobileId !== undefined ? updates.playerMobileId || '' : existing.playerMobileId,
-    playerId: updates.playerId !== undefined ? updates.playerId || null : existing.playerId,
+    playerId: updates.playerId !== undefined ? updates.playerId || null : existing.playerId ?? null,
     facebook: updates.facebook !== undefined ? updates.facebook || '' : existing.facebook,
     instagram: updates.instagram !== undefined ? updates.instagram || '' : existing.instagram,
     telegram: updates.telegram !== undefined ? updates.telegram || '' : existing.telegram,

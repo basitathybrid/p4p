@@ -4714,6 +4714,105 @@ button {
   background: #fff;
 }
 
+.tier-customer-picker {
+  position: relative;
+}
+
+.tier-customer-picker-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: #fff;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tier-customer-picker-trigger:focus-visible,
+.tier-customer-picker-search:focus-visible,
+.tier-customer-picker-option:focus-visible {
+  outline: 2px solid var(--blue-700);
+  outline-offset: 2px;
+}
+
+.tier-customer-picker-chevron {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(45deg) translateY(-2px);
+}
+
+.tier-customer-picker-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 20;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 12px 28px rgba(20, 12, 32, 0.2);
+}
+
+.tier-customer-picker-search {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 8px 9px;
+  background: #fff;
+  color: var(--text);
+  font: inherit;
+}
+
+.tier-customer-picker-options {
+  display: grid;
+  max-height: 220px;
+  margin-top: 6px;
+  overflow-y: auto;
+}
+
+.tier-customer-picker-option {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  border: 0;
+  border-radius: 6px;
+  padding: 8px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tier-customer-picker-option:hover,
+.tier-customer-picker-option[aria-selected="true"] {
+  background: rgba(124, 34, 213, 0.1);
+}
+
+.tier-customer-picker-option small {
+  color: var(--muted);
+}
+
+.tier-customer-picker-empty {
+  padding: 10px 8px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
 .manual-tier-table-section {
   margin-top: 18px;
   padding-top: 14px;
@@ -5436,10 +5535,31 @@ button {
 
 .supervisor-shell .detail-grid input,
 .supervisor-shell .threshold-amount,
-.supervisor-shell .tier-override-controls select {
+.supervisor-shell .tier-override-controls select,
+.supervisor-shell .tier-customer-picker-trigger,
+.supervisor-shell .tier-customer-picker-search {
   background: rgba(9, 3, 22, 0.6);
   border: 1px solid rgba(180, 110, 255, 0.3);
   color: #f6ebff;
+}
+
+.supervisor-shell .tier-customer-picker-dropdown {
+  border-color: rgba(180, 110, 255, 0.3);
+  background: #170b26;
+}
+
+.supervisor-shell .tier-customer-picker-option {
+  color: #f6ebff;
+}
+
+.supervisor-shell .tier-customer-picker-option:hover,
+.supervisor-shell .tier-customer-picker-option[aria-selected="true"] {
+  background: rgba(180, 110, 255, 0.18);
+}
+
+.supervisor-shell .tier-customer-picker-option small,
+.supervisor-shell .tier-customer-picker-empty {
+  color: rgba(228, 214, 255, 0.72);
 }
 
 .supervisor-shell .detail-grid input:disabled {
@@ -6950,6 +7070,14 @@ button {
   stroke-width: 2;
 }
 
+.login-input-wrap svg.us-phone-flag,
+.customer-signup-card .signup-input-wrap > svg.us-phone-flag {
+  width: 24px;
+  height: 17px;
+  flex: 0 0 auto;
+  border-radius: 3px;
+}
+
 .customer-signup-card .signup-input-wrap > svg:last-child {
   width: 18px;
   color: #bd46e5;
@@ -8083,5 +8211,182 @@ button {
 
   .supervisor-shell .game-tile {
     min-height: 92px;
+  }
+}
+
+.account-settings-page {
+  display: grid;
+  gap: 18px;
+  width: min(100%, 900px);
+  margin: 0 auto;
+}
+
+.account-settings-heading {
+  padding: 8px 2px 2px;
+}
+
+.account-settings-heading .eyebrow {
+  margin: 0 0 5px;
+  color: var(--blue-700);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.account-settings-heading h1 {
+  margin: 0;
+  color: var(--text);
+  font-size: clamp(1.7rem, 3vw, 2.2rem);
+}
+
+.account-settings-heading p:last-child,
+.account-settings-card-title p,
+.account-settings-card-heading p {
+  margin: 5px 0 0;
+  color: var(--muted);
+}
+
+.account-settings-card {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface, #fff);
+  box-shadow: var(--shadow);
+}
+
+.account-settings-card-heading {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.account-settings-avatar {
+  display: grid;
+  place-items: center;
+  width: 64px;
+  height: 64px;
+  flex: 0 0 64px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: rgba(124, 34, 213, 0.1);
+  color: var(--blue-700);
+}
+
+.account-settings-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.account-settings-card-heading > div:nth-child(2) {
+  flex: 1;
+}
+
+.account-settings-card h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 1.05rem;
+}
+
+.account-settings-file {
+  display: none;
+}
+
+.account-settings-card-title {
+  margin-bottom: 2px;
+}
+
+.account-settings-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: end;
+  gap: 14px;
+}
+
+.account-settings-form label {
+  display: grid;
+  gap: 6px;
+  color: var(--text);
+  font-size: 0.88rem;
+  font-weight: 650;
+}
+
+.account-settings-form input {
+  width: 100%;
+  min-height: 42px;
+  box-sizing: border-box;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 9px 11px;
+  background: #fff;
+  color: var(--text);
+  font: inherit;
+}
+
+.account-settings-form input:focus-visible {
+  outline: 2px solid var(--blue-700);
+  outline-offset: 2px;
+}
+
+.account-settings-form .edit-btn {
+  justify-self: start;
+  min-height: 40px;
+}
+
+.supervisor-shell .account-settings-heading .eyebrow,
+.customer-shell .account-settings-heading .eyebrow {
+  color: #d3a3ff;
+}
+
+.supervisor-shell .account-settings-heading h1,
+.supervisor-shell .account-settings-card h2,
+.supervisor-shell .account-settings-form label,
+.customer-shell .account-settings-heading h1,
+.customer-shell .account-settings-card h2,
+.customer-shell .account-settings-form label {
+  color: #f6ebff;
+}
+
+.supervisor-shell .account-settings-heading p:last-child,
+.supervisor-shell .account-settings-card-title p,
+.supervisor-shell .account-settings-card-heading p,
+.customer-shell .account-settings-heading p:last-child,
+.customer-shell .account-settings-card-title p,
+.customer-shell .account-settings-card-heading p {
+  color: rgba(228, 214, 255, 0.72);
+}
+
+.supervisor-shell .account-settings-card,
+.customer-shell .account-settings-card {
+  border-color: rgba(180, 110, 255, 0.26);
+  background: rgba(23, 11, 38, 0.82);
+}
+
+.supervisor-shell .account-settings-form input,
+.customer-shell .account-settings-form input {
+  border-color: rgba(180, 110, 255, 0.3);
+  background: rgba(9, 3, 22, 0.6);
+  color: #f6ebff;
+}
+
+@media (max-width: 620px) {
+  .account-settings-card {
+    padding: 16px;
+  }
+
+  .account-settings-form {
+    grid-template-columns: 1fr;
+  }
+
+  .account-settings-card-heading {
+    flex-wrap: wrap;
+  }
+
+  .account-settings-card-heading > .edit-btn {
+    width: 100%;
   }
 }

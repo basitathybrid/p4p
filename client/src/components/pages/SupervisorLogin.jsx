@@ -56,6 +56,7 @@ export function SupervisorLoginPage() {
       localStorage.setItem('p4p_user_role', data.role)
       localStorage.setItem('p4p_supervisor_token', data.token)
       localStorage.setItem('p4p_supervisor_name', data.user?.name || 'Supervisor')
+      localStorage.setItem('p4p_supervisor_email', data.user?.email || '')
       navigate('/supervisor')
     } catch (error) {
       setStatus({ type: 'error', message: 'Something went wrong while logging in.' })

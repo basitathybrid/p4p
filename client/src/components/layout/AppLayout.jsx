@@ -1,14 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { Icon } from '../ui/Icon'
 import roles from '../../data/roles'
 import config from '../../config'
 import { useProfilePicture } from '../../useProfilePicture'
+import { AccountSettings } from '../pages/AccountSettings'
 import play4PerksLogo from '../../assets/play4perks-logo.png'
 import moreThanJustPlay from '../../assets/more-than-just-play.png'
 
 export function AppLayout({ route, children }) {
   const currentRole = roles[route]
+  const location = useLocation()
   const navigate = useNavigate()
   const customerSidebar = [
     { label: 'Home', icon: 'home', to: '/customer' },
@@ -16,6 +18,7 @@ export function AppLayout({ route, children }) {
     { label: 'Transactions', icon: 'history', to: '/customer' },
     { label: 'Play & Earn', icon: 'controller', to: '/customer' },
     { label: 'My Profile', icon: 'user', to: '/customer' },
+    { label: 'Settings', icon: 'settings', to: '/customer/settings' },
     { label: 'Support', icon: 'headset', to: '/customer' },
     { label: 'FAQ', icon: 'question', to: '/customer' },
   ]
@@ -32,10 +35,7 @@ export function AppLayout({ route, children }) {
   }
   const [menuOpen, setMenuOpen] = useState(false)
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
-  const [displayUser, setDisplayUser] = useState({
-    ...currentRole.user,
-    email: currentRole.user.email || 'ava.johnson@example.com',
-  })
+  const [displayUser, setDisplayUser] = useState(currentRole.user)
   const { profileImage: toolbarProfileImage } = useProfilePicture(route)
   const [toolbarImageFailed, setToolbarImageFailed] = useState(false)
   const [showChangePassword, setShowChangePassword] = useState(false)
@@ -62,17 +62,42 @@ export function AppLayout({ route, children }) {
   }, [])
 
   useEffect(() => {
-    const nextDisplayUser = {
-      ...currentRole.user,
-      email: currentRole.user.email || 'ava.johnson@example.com',
-    }
+    const nextDisplayUser = { ...currentRole.user }
 
     if (route === 'supervisor') {
       const name = localStorage.getItem('p4p_supervisor_name')
+      const email = localStorage.getItem('p4p_supervisor_email')
       if (name) {
         nextDisplayUser.name = name
       }
+      if (email) {
+        nextDisplayUser.email = email
+      } else {
+        delete nextDisplayUser.email
+      }
       setDisplayUser(nextDisplayUser)
+
+      const token = localStorage.getItem('p4p_supervisor_token')
+      if (token) {
+        fetch(config.REST_API.Supervisor.Profile, {
+          headers: { Authorization: 'Bearer ' + token },
+        })
+          .then((response) => {
+            if (!response.ok) throw new Error('Unable to load supervisor email.')
+            return response.json()
+          })
+          .then((data) => {
+            if (!data?.profile) return
+            const profile = data.profile
+            if (profile.email) localStorage.setItem('p4p_supervisor_email', profile.email)
+            setDisplayUser((current) => ({
+              ...current,
+              name: profile.name || current.name,
+              email: profile.email || current.email,
+            }))
+          })
+          .catch((error) => console.error('Unable to load supervisor email:', error))
+      }
       return
     }
 
@@ -118,21 +143,13 @@ export function AppLayout({ route, children }) {
     localStorage.removeItem('p4p_user_role')
     localStorage.removeItem('p4p_supervisor_token')
     localStorage.removeItem('p4p_supervisor_name')
+    localStorage.removeItem('p4p_supervisor_email')
     localStorage.removeItem('p4p_customer_token')
     localStorage.removeItem('p4p_customer_phone')
     localStorage.removeItem('p4p_basic_token')
     localStorage.removeItem('p4p_basic_username')
     localStorage.removeItem('p4p_basic_email')
     navigate(route === 'supervisor' ? '/supervisorlogin' : route === 'basic' ? '/basicuserlogin' : '/login')
-  }
-
-  const openChangePassword = () => {
-    setMenuOpen(false)
-    setPasswordForm({ oldPassword: '', newPassword: '', confirmPassword: '' })
-    setPasswordFieldErrors({})
-    setPasswordStatus({ type: 'idle', message: '' })
-    setShowPasswords({ oldPassword: false, newPassword: false, confirmPassword: false })
-    setShowChangePassword(true)
   }
 
   const closeChangePassword = () => {
@@ -204,7 +221,7 @@ export function AppLayout({ route, children }) {
   }
 
   return (
-    <div className={`app-shell ${route === 'supervisor' ? 'supervisor-shell' : route === 'basic' ? 'basic-shell' : ''}`}>
+    <div className={`app-shell ${route === 'customer' ? 'customer-shell' : route === 'supervisor' ? 'supervisor-shell' : route === 'basic' ? 'basic-shell' : ''}`}>
       <aside className="sidebar">
         <div className="brand-block">
           <div className="brand-stack">
@@ -230,14 +247,18 @@ export function AppLayout({ route, children }) {
             : currentRole.sidebar.map((item, index) => ({
               label: index === 0 ? 'Home' : item,
               icon: index === 0 ? 'home' : supervisorSidebar[item] || 'info',
-              to: route === 'basic' ? '/basic-user' : '/supervisor',
+              to: item === 'Settings' ? '/supervisor/settings' : route === 'basic' ? '/basic-user' : '/supervisor',
             }))
           ).map((item, index) => {
-            const isActive = index === 0 || item.label === 'Pending Approvals'
+            const isSettingsPage = location.pathname.endsWith('/settings')
+            const isActive = isSettingsPage
+              ? item.label === 'Settings'
+              : index === 0 || item.label === 'Pending Approvals'
             return (
               <NavLink
                 key={item.label}
                 to={item.to}
+                end={item.label !== 'Settings'}
                 className={`nav-item ${isActive ? 'active' : ''}`}
                 onClick={() => setMobileNavOpen(false)}
               >
@@ -301,13 +322,12 @@ export function AppLayout({ route, children }) {
                 </div>
                 <div className="toolbar-user-text">
                   <div className="toolbar-name">{displayUser.name}</div>
-                  <div className="toolbar-role">{displayUser.email || 'ava.johnson@example.com'}</div>
+                  <div className="toolbar-role">{route === 'supervisor' ? displayUser.email : displayUser.email || displayUser.role}</div>
                 </div>
                 <span className="toolbar-chevron"><Icon name="chevron" /></span>
               </button>
               {menuOpen && (
                 <div className="toolbar-dropdown">
-                  <button className="toolbar-dropdown-item" onClick={openChangePassword}>Change Password</button>
                   <button className="toolbar-dropdown-item" onClick={handleLogout}>Logout</button>
                 </div>
               )}
@@ -315,7 +335,21 @@ export function AppLayout({ route, children }) {
           </div>
         </header>
 
-        <div className="content-area">{children}</div>
+        <div className="content-area">
+          {location.pathname.endsWith('/settings') && (route === 'customer' || route === 'supervisor')
+            ? (
+              <AccountSettings
+                role={route}
+                displayUser={displayUser}
+                onProfileChange={(profile) => setDisplayUser((current) => ({
+                  ...current,
+                  name: profile.name || current.name,
+                  email: profile.email || current.email,
+                }))}
+              />
+            )
+            : children}
+        </div>
       </main>
 
       {showChangePassword && (
@@ -418,4 +452,3 @@ export function AppLayout({ route, children }) {
 }
 
 export default AppLayout
-

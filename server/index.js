@@ -419,6 +419,34 @@ app.get('/api/supervisor/profile', requireSupervisorAuth, async (req, res) => {
   }
 });
 
+app.put('/api/supervisor/profile', requireSupervisorAuth, async (req, res) => {
+  const name = String(req.body?.name || '').trim();
+  const email = String(req.body?.email || '').trim().toLowerCase();
+  if (!name || name.length > 255 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 255) {
+    return res.status(400).json({ success: false, code: 'VALIDATION_ERROR', message: 'Enter a valid name and email address.' });
+  }
+
+  try {
+    const [existing] = await db.query(
+      'SELECT id FROM supervisors WHERE LOWER(email) = LOWER(?) AND id <> ? LIMIT 1',
+      [email, req.user.id],
+    );
+    if (existing.length) {
+      return res.status(409).json({ success: false, code: 'EMAIL_IN_USE', message: 'That email address is already in use.' });
+    }
+
+    await db.query(
+      'UPDATE supervisors SET full_name = ?, email = ? WHERE id = ? AND is_active = 1',
+      [name, email, req.user.id],
+    );
+    const profile = await getSupervisorProfile(req.user.id);
+    return res.status(200).json({ success: true, profile, token: signSupervisorToken(profile) });
+  } catch (error) {
+    console.error('update supervisor profile failed:', error);
+    return res.status(500).json({ success: false, code: 'SERVER_ERROR', message: 'Unable to update supervisor profile.' });
+  }
+});
+
 app.get('/api/supervisor/profile-picture', requireSupervisorAuth, async (req, res, next) => {
   try {
     const profile = await getSupervisorProfile(req.user.id);
@@ -603,6 +631,47 @@ function registerAccountProfilePictureRoutes(route, auth, table, accountType, ge
 registerAccountProfilePictureRoutes('/api/customer/profile-picture', requireCustomerAuth, 'customers', 'customers', (req) => req.customerPhone);
 registerAccountProfilePictureRoutes('/api/basic/profile-picture', requireBasicUserAuth, 'basic_users', 'basic_users', (req) => req.user.id);
 
+app.get('/api/customer/profile', requireCustomerAuth, async (req, res) => {
+  try {
+    const profile = await getApplication(req.customerPhone);
+    if (!profile) {
+      return res.status(404).json({ success: false, code: 'NOT_FOUND', message: 'Customer profile not found.' });
+    }
+
+    return res.status(200).json({ success: true, profile });
+  } catch (error) {
+    console.error('load customer profile failed:', error);
+    return res.status(500).json({ success: false, code: 'SERVER_ERROR', message: 'Unable to load customer profile.' });
+  }
+});
+
+app.put('/api/customer/profile', requireCustomerAuth, async (req, res) => {
+  const name = String(req.body?.name || '').trim();
+  const email = String(req.body?.email || '').trim().toLowerCase();
+  if (!name || name.length > 255 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 255) {
+    return res.status(400).json({ success: false, code: 'VALIDATION_ERROR', message: 'Enter a valid name and email address.' });
+  }
+
+  try {
+    const existing = await getApplication(req.customerPhone);
+    if (!existing) {
+      return res.status(404).json({ success: false, code: 'NOT_FOUND', message: 'Customer profile not found.' });
+    }
+
+    await db.query(
+      'UPDATE applications SET name = ?, email = ? WHERE phone = ?',
+      [name, email, req.customerPhone],
+    );
+    return res.status(200).json({
+      success: true,
+      profile: { ...existing, name, email },
+    });
+  } catch (error) {
+    console.error('update customer profile failed:', error);
+    return res.status(500).json({ success: false, code: 'SERVER_ERROR', message: 'Unable to update customer profile.' });
+  }
+});
+
 app.get('/api/customer/session', requireCustomerAuth, async (req, res) => {
   try {
     const application = await getApplication(req.customerPhone);
@@ -628,7 +697,6 @@ app.get('/api/customer/session', requireCustomerAuth, async (req, res) => {
       'SELECT tier_name AS name, minimum_volume AS minimum FROM tier_thresholds ORDER BY minimum_volume ASC'
     );
 
-    // Profile details are view-only for the customer; edits are made only by PayFe Operations via the review endpoints.
     return res.status(200).json({
       success: true,
       status: application.status,
