@@ -1,5 +1,9 @@
 # React + Vite
 
+## LiveChat widget
+
+Set `LIVECHAT_LICENSE_ID` in `public/app-config.js` to enable the LiveChat support chat widget. Find the license ID in [LiveChat](https://app.livechat.com) under **Settings → Channels → Chat widget → Install LiveChat** (the `license` number in the snippet). Leave it empty to disable the widget. Changes apply without a rebuild — just refresh the page.
+
 This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
 
 Currently, two official plugins are available:

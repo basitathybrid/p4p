@@ -9,6 +9,7 @@ import { CustomerSignupPage } from './components/pages/CustomerSignup'
 import { CustomerLoginPage } from './components/pages/CustomerLogin'
 import { SupervisorLoginPage } from './components/pages/SupervisorLogin'
 import { BasicUserLoginPage } from './components/pages/BasicUserLogin'
+import LiveChatWidget from './components/ui/LiveChatWidget'
 
 function ProtectedRoute({ children, allowedRole }) {
   const role = localStorage.getItem('p4p_user_role')
@@ -57,7 +58,9 @@ function ProtectedRoute({ children, allowedRole }) {
 
 function App() {
   return (
-    <Routes>
+    <>
+      <LiveChatWidget />
+      <Routes>
       <Route path="/" element={<Navigate to="/signup" replace />} />
       <Route path="/customer" element={<ProtectedRoute allowedRole="customer"><CustomerPage /></ProtectedRoute>} />
       <Route path="/customer/settings" element={<ProtectedRoute allowedRole="customer"><CustomerPage /></ProtectedRoute>} />
@@ -68,7 +71,8 @@ function App() {
       <Route path="/login" element={<CustomerLoginPage />} />
       <Route path="/supervisorlogin" element={<SupervisorLoginPage />} />
       <Route path="/basicuserlogin" element={<BasicUserLoginPage />} />
-    </Routes>
+      </Routes>
+    </>
   )
 }
 
