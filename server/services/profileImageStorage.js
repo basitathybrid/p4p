@@ -7,6 +7,16 @@ const PROFILE_IMAGE_STORAGE_ROOT = path.resolve(
   process.env.PROFILE_IMAGE_STORAGE_DIR || path.join(__dirname, '..', 'storage', 'profile-pictures'),
 );
 
+// When AWS_S3_BUCKET is set, images are stored in S3 instead of the local filesystem.
+const S3_BUCKET = process.env.AWS_S3_BUCKET || '';
+const S3_PREFIX = String(process.env.AWS_S3_PREFIX || 'profile-pictures').replace(/^\/+|\/+$/g, '');
+let s3Client = null;
+
+if (S3_BUCKET) {
+  const { S3Client } = require('@aws-sdk/client-s3');
+  s3Client = new S3Client({ region: process.env.AWS_REGION || 'us-east-1' });
+}
+
 const IMAGE_TYPES = {
   'image/jpeg': { extension: 'jpg', matches: (buffer) => buffer.length >= 3 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff },
   'image/png': { extension: 'png', matches: (buffer) => buffer.length >= 8 && buffer.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])) },
@@ -71,6 +81,18 @@ async function storeProfileImage(ownerId, contentType, buffer, accountType = 'su
     ? crypto.createHash('sha256').update(String(ownerId)).digest('hex')
     : String(ownerId);
   const key = `${accountType}/${ownerKey}/${crypto.randomUUID()}.${imageType.extension}`;
+
+  if (s3Client) {
+    const { PutObjectCommand } = require('@aws-sdk/client-s3');
+    await s3Client.send(new PutObjectCommand({
+      Bucket: S3_BUCKET,
+      Key: `${S3_PREFIX}/${key}`,
+      Body: buffer,
+      ContentType: contentType,
+    }));
+    return key;
+  }
+
   const filePath = resolveStoragePath(key);
 
   await fs.mkdir(path.dirname(filePath), { recursive: true });
@@ -82,11 +104,31 @@ async function storeProfileImage(ownerId, contentType, buffer, accountType = 'su
 async function removeProfileImage(key) {
   if (!key) return;
 
+  if (s3Client) {
+    const { DeleteObjectCommand } = require('@aws-sdk/client-s3');
+    await s3Client.send(new DeleteObjectCommand({ Bucket: S3_BUCKET, Key: `${S3_PREFIX}/${key}` }));
+    return;
+  }
+
   await fs.rm(resolveStoragePath(key), { force: true });
 }
 
 async function openProfileImage(key) {
   if (!key) return null;
+
+  if (s3Client) {
+    const { GetObjectCommand } = require('@aws-sdk/client-s3');
+    try {
+      const object = await s3Client.send(new GetObjectCommand({ Bucket: S3_BUCKET, Key: `${S3_PREFIX}/${key}` }));
+      return { body: await object.Body.transformToByteArray(), contentType: contentTypeForKey(key) };
+    } catch (error) {
+      // Without s3:ListBucket permission, S3 returns AccessDenied (403) instead of
+      // NoSuchKey (404) for missing keys — treat both as "not found".
+      if (['NoSuchKey', 'AccessDenied', 'NotFound'].includes(error.name)) return null;
+      if ([403, 404].includes(error.$metadata?.httpStatusCode)) return null;
+      throw error;
+    }
+  }
 
   const filePath = resolveStoragePath(key);
   try {
@@ -115,4 +157,5 @@ module.exports = {
   storeProfileImage,
   removeProfileImage,
   openProfileImage,
+  isS3Enabled: () => Boolean(s3Client),
 };

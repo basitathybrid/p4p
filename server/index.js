@@ -447,6 +447,57 @@ app.put('/api/supervisor/profile', requireSupervisorAuth, async (req, res) => {
   }
 });
 
+app.get('/api/basic/profile', requireBasicUserAuth, async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      'SELECT id, full_name AS name, username, email, role FROM basic_users WHERE id = ? AND is_active = 1 LIMIT 1',
+      [req.user.id],
+    );
+    if (!rows[0]) {
+      return res.status(404).json({ success: false, code: 'NOT_FOUND', message: 'Basic user profile not found.' });
+    }
+    return res.status(200).json({ success: true, profile: rows[0] });
+  } catch (error) {
+    console.error('load basic user profile failed:', error);
+    return res.status(500).json({ success: false, code: 'SERVER_ERROR', message: 'Unable to load basic user profile.' });
+  }
+});
+
+app.put('/api/basic/profile', requireBasicUserAuth, async (req, res) => {
+  const name = String(req.body?.name || '').trim();
+  const email = String(req.body?.email || '').trim().toLowerCase();
+  if (!name || name.length > 255 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 255) {
+    return res.status(400).json({ success: false, code: 'VALIDATION_ERROR', message: 'Enter a valid name and email address.' });
+  }
+
+  try {
+    const [existing] = await db.query(
+      'SELECT id FROM basic_users WHERE LOWER(email) = LOWER(?) AND id <> ? LIMIT 1',
+      [email, req.user.id],
+    );
+    if (existing.length) {
+      return res.status(409).json({ success: false, code: 'EMAIL_IN_USE', message: 'That email address is already in use.' });
+    }
+
+    const [result] = await db.query(
+      'UPDATE basic_users SET full_name = ?, email = ? WHERE id = ? AND is_active = 1',
+      [name, email, req.user.id],
+    );
+    if (!result.affectedRows) {
+      return res.status(404).json({ success: false, code: 'NOT_FOUND', message: 'Basic user profile not found.' });
+    }
+
+    const [rows] = await db.query(
+      'SELECT id, full_name AS name, username, email, role FROM basic_users WHERE id = ? AND is_active = 1 LIMIT 1',
+      [req.user.id],
+    );
+    return res.status(200).json({ success: true, profile: rows[0], token: signBasicUserToken(rows[0]) });
+  } catch (error) {
+    console.error('update basic user profile failed:', error);
+    return res.status(500).json({ success: false, code: 'SERVER_ERROR', message: 'Unable to update basic user profile.' });
+  }
+});
+
 app.get('/api/supervisor/profile-picture', requireSupervisorAuth, async (req, res, next) => {
   try {
     const profile = await getSupervisorProfile(req.user.id);
@@ -462,7 +513,7 @@ app.get('/api/supervisor/profile-picture', requireSupervisorAuth, async (req, re
 
     res.type(image.contentType);
     res.set('Cache-Control', 'private, max-age=300');
-    return res.sendFile(image.filePath);
+    return image.filePath ? res.sendFile(image.filePath) : res.send(Buffer.from(image.body));
   } catch (error) {
     return next(error);
   }
@@ -575,7 +626,7 @@ function registerAccountProfilePictureRoutes(route, auth, table, accountType, ge
       }
       res.type(image.contentType);
       res.set('Cache-Control', 'private, no-store');
-      return res.sendFile(image.filePath);
+      return image.filePath ? res.sendFile(image.filePath) : res.send(Buffer.from(image.body));
     } catch (error) {
       return next(error);
     }

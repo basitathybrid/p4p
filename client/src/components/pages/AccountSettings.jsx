@@ -16,6 +16,12 @@ const ACCOUNT_CONFIG = {
     profilePath: 'profile',
     saveUrl: config.REST_API.Supervisor.Profile,
   },
+  basic: {
+    profileUrl: config.REST_API.Basic.Profile,
+    tokenKey: 'p4p_basic_token',
+    profilePath: 'profile',
+    saveUrl: config.REST_API.Basic.Profile,
+  },
 }
 
 export function AccountSettings({ role, onProfileChange, displayUser }) {
@@ -43,6 +49,11 @@ export function AccountSettings({ role, onProfileChange, displayUser }) {
   }, [displayUser.name, displayUser.email, profileDirty])
 
   useEffect(() => {
+    if (!account.profileUrl) {
+      setLoading(false)
+      return undefined
+    }
+
     const controller = new AbortController()
     const token = localStorage.getItem(account.tokenKey)
 
@@ -96,10 +107,10 @@ export function AccountSettings({ role, onProfileChange, displayUser }) {
       setForm({ name: profile.name, email: profile.email })
       setProfileDirty(false)
       onProfileChange(profile)
-      if (role === 'supervisor') {
+      if (role === 'supervisor' || role === 'basic') {
         if (data.token) localStorage.setItem(account.tokenKey, data.token)
-        localStorage.setItem('p4p_supervisor_name', profile.name)
-        localStorage.setItem('p4p_supervisor_email', profile.email)
+        localStorage.setItem(`p4p_${role}_name`, profile.name)
+        localStorage.setItem(`p4p_${role}_email`, profile.email)
       }
       setProfileStatus({ type: 'success', message: 'Profile details updated.' })
     } catch (error) {
@@ -191,6 +202,7 @@ export function AccountSettings({ role, onProfileChange, displayUser }) {
         {pictureError && <div className="status-banner error">{pictureError}</div>}
       </section>
 
+      {account.saveUrl && (
       <section className="account-settings-card">
         <div className="account-settings-card-title">
           <h2>Personal information</h2>
@@ -230,6 +242,7 @@ export function AccountSettings({ role, onProfileChange, displayUser }) {
           </button>
         </form>
       </section>
+      )}
 
       <section className="account-settings-card">
         <div className="account-settings-card-title">

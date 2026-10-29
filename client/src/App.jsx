@@ -65,6 +65,7 @@ function App() {
       <Route path="/customer" element={<ProtectedRoute allowedRole="customer"><CustomerPage /></ProtectedRoute>} />
       <Route path="/customer/settings" element={<ProtectedRoute allowedRole="customer"><CustomerPage /></ProtectedRoute>} />
       <Route path="/basic-user" element={<ProtectedRoute allowedRole="basic"><BasicUserPage /></ProtectedRoute>} />
+      <Route path="/basic-user/settings" element={<ProtectedRoute allowedRole="basic"><BasicUserPage /></ProtectedRoute>} />
       <Route path="/supervisor" element={<ProtectedRoute allowedRole="supervisor"><SupervisorPage /></ProtectedRoute>} />
       <Route path="/supervisor/settings" element={<ProtectedRoute allowedRole="supervisor"><SupervisorPage /></ProtectedRoute>} />
       <Route path="/signup" element={<CustomerSignupPage />} />

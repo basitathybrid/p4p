@@ -16,7 +16,9 @@ const config = {
       ProfilePicture: `${ROOT_URL}customer/profile-picture`,
     },
     Basic: {
+      Profile: `${ROOT_URL}basic/profile`,
       ProfilePicture: `${ROOT_URL}basic/profile-picture`,
+      Customers: `${ROOT_URL}basic/customers`,
     },
     Supervisor: {
       Profile: `${ROOT_URL}supervisor/profile`,
@@ -32,9 +34,6 @@ const config = {
       Applications: `${ROOT_URL}review/applications`,
       GetApplicationByPhone: (phone) => `${ROOT_URL}review/applications/${phone}`,
       SubmitDecision: (phone) => `${ROOT_URL}review/applications/${phone}/decision`,
-    },
-    Basic: {
-      Customers: `${ROOT_URL}basic/customers`,
     },
     Internal: {
       CustomerProfile: (phone) => `${ROOT_URL}internal/customers/${encodeURIComponent(phone)}/profile`,

@@ -247,7 +247,7 @@ export function AppLayout({ route, children }) {
             : currentRole.sidebar.map((item, index) => ({
               label: index === 0 ? 'Home' : item,
               icon: index === 0 ? 'home' : supervisorSidebar[item] || 'info',
-              to: item === 'Settings' ? '/supervisor/settings' : route === 'basic' ? '/basic-user' : '/supervisor',
+              to: item === 'Settings' ? `${currentRole.path}/settings` : currentRole.path,
             }))
           ).map((item, index) => {
             const isSettingsPage = location.pathname.endsWith('/settings')
@@ -336,7 +336,7 @@ export function AppLayout({ route, children }) {
         </header>
 
         <div className="content-area">
-          {location.pathname.endsWith('/settings') && (route === 'customer' || route === 'supervisor')
+          {location.pathname.endsWith('/settings') && ['customer', 'supervisor', 'basic'].includes(route)
             ? (
               <AccountSettings
                 role={route}

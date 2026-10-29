@@ -4991,6 +4991,13 @@ button {
   object-fit: cover;
 }
 
+.supervisor-profile-upload img {
+  position: absolute;
+  inset: 0;
+  display: block;
+  clip-path: circle(50% at 50% 50%);
+}
+
 .supervisor-profile-upload svg {
   width: 27px;
   height: 27px;
@@ -8338,7 +8345,8 @@ button {
 }
 
 .supervisor-shell .account-settings-heading .eyebrow,
-.customer-shell .account-settings-heading .eyebrow {
+.customer-shell .account-settings-heading .eyebrow,
+.basic-shell .account-settings-heading .eyebrow {
   color: #d3a3ff;
 }
 
@@ -8347,7 +8355,10 @@ button {
 .supervisor-shell .account-settings-form label,
 .customer-shell .account-settings-heading h1,
 .customer-shell .account-settings-card h2,
-.customer-shell .account-settings-form label {
+.customer-shell .account-settings-form label,
+.basic-shell .account-settings-heading h1,
+.basic-shell .account-settings-card h2,
+.basic-shell .account-settings-form label {
   color: #f6ebff;
 }
 
@@ -8356,18 +8367,23 @@ button {
 .supervisor-shell .account-settings-card-heading p,
 .customer-shell .account-settings-heading p:last-child,
 .customer-shell .account-settings-card-title p,
-.customer-shell .account-settings-card-heading p {
+.customer-shell .account-settings-card-heading p,
+.basic-shell .account-settings-heading p:last-child,
+.basic-shell .account-settings-card-title p,
+.basic-shell .account-settings-card-heading p {
   color: rgba(228, 214, 255, 0.72);
 }
 
 .supervisor-shell .account-settings-card,
-.customer-shell .account-settings-card {
+.customer-shell .account-settings-card,
+.basic-shell .account-settings-card {
   border-color: rgba(180, 110, 255, 0.26);
   background: rgba(23, 11, 38, 0.82);
 }
 
 .supervisor-shell .account-settings-form input,
-.customer-shell .account-settings-form input {
+.customer-shell .account-settings-form input,
+.basic-shell .account-settings-form input {
   border-color: rgba(180, 110, 255, 0.3);
   background: rgba(9, 3, 22, 0.6);
   color: #f6ebff;
