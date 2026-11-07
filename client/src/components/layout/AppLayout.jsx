@@ -17,6 +17,7 @@ export function AppLayout({ route, children }) {
     { label: 'Rewards', icon: 'gift', to: '/customer' },
     { label: 'Transactions', icon: 'history', to: '/customer' },
     { label: 'Play & Earn', icon: 'controller', to: '/customer' },
+    { label: 'Daily Missions', icon: 'spark', to: '/customer/missions' },
     { label: 'My Profile', icon: 'user', to: '/customer' },
     { label: 'Settings', icon: 'settings', to: '/customer/settings' },
     { label: 'Support', icon: 'headset', to: '/customer' },
@@ -29,6 +30,7 @@ export function AppLayout({ route, children }) {
     Transactions: 'money',
     Uploads: 'upload',
     'Tier Configuration': 'tier-config',
+    'Daily Missions': 'spark',
     Reports: 'reports',
     'Audit Logs': 'audit',
     Settings: 'settings',
@@ -247,13 +249,17 @@ export function AppLayout({ route, children }) {
             : currentRole.sidebar.map((item, index) => ({
               label: index === 0 ? 'Home' : item,
               icon: index === 0 ? 'home' : supervisorSidebar[item] || 'info',
-              to: item === 'Settings' ? `${currentRole.path}/settings` : currentRole.path,
+            to: item === 'Settings'
+              ? `${currentRole.path}/settings`
+              : item === 'Daily Missions'
+                ? `${currentRole.path}/missions`
+                : currentRole.path,
             }))
-          ).map((item, index) => {
+          ).map((item) => {
             const isSettingsPage = location.pathname.endsWith('/settings')
             const isActive = isSettingsPage
               ? item.label === 'Settings'
-              : index === 0 || item.label === 'Pending Approvals'
+              : location.pathname === item.to
             return (
               <NavLink
                 key={item.label}
@@ -313,6 +319,12 @@ export function AppLayout({ route, children }) {
               <button className="header-icon" aria-label="Notifications"><Icon name="bell" /></button>
               <span className="notification-badge">3</span>
             </span>
+            {route === 'customer' && (
+              <div className="topbar-points-card" aria-label="My points">
+                <span className="topbar-points-coin">$</span>
+                <div><strong>450</strong><small>My points</small></div>
+              </div>
+            )}
             <div className="toolbar-user-menu" ref={menuRef}>
               <button className="toolbar-user" onClick={() => setMenuOpen((open) => !open)}>
                 <div className="toolbar-avatar">

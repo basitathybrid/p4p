@@ -71,7 +71,7 @@ export const roles = {
   supervisor: {
     name: 'Supervisor',
     path: '/supervisor',
-    sidebar: ['Dashboard', 'Pending Approvals', 'Customers', 'Transactions', 'Uploads', 'Tier Configuration', 'Reports', 'Audit Logs', 'Settings'],
+    sidebar: ['Dashboard', 'Pending Approvals', 'Customers', 'Transactions', 'Uploads', 'Tier Configuration', 'Daily Missions', 'Reports', 'Audit Logs', 'Settings'],
     user: { name: 'Maria Rodriguez', role: 'Supervisor' },
     stats: [
       { title: 'Pending Applications', value: '0', note: 'Queue is clear', tone: 'blue' },

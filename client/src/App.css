@@ -736,7 +736,7 @@ button {
 .topbar-actions {
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 24px;
 }
 
 .toolbar-user {
