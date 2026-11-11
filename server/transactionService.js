@@ -1,5 +1,6 @@
 const db = require('./db');
 const { writeAuditLog } = require('./auditLog');
+const { getCustomerMissionActivity, awardCompletedMissions } = require('./missionService');
 const { DEFAULT_THRESHOLDS, getTierThresholds, tierForVolume: calculateTier } = require('./tierService');
 
 const TRANSACTION_TYPES = new Set(['buy', 'send', 'receive', 'sell']);
@@ -184,6 +185,9 @@ async function importTransactions(csv, actor = null) {
           [calculateTier(usageRows[0].lifetime_transaction_volume, thresholds), phone]
         );
       }
+
+      const missionActivity = await getCustomerMissionActivity(conn, phone);
+      await awardCompletedMissions(conn, phone, missionActivity);
     }
 
     if (actor) {

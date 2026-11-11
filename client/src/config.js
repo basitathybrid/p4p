@@ -14,6 +14,7 @@ const config = {
       Session: `${ROOT_URL}customer/session`,
       Profile: `${ROOT_URL}customer/profile`,
       ProfilePicture: `${ROOT_URL}customer/profile-picture`,
+      Missions: `${ROOT_URL}customer/missions`,
     },
     Basic: {
       Profile: `${ROOT_URL}basic/profile`,
@@ -25,6 +26,7 @@ const config = {
       ProfilePicture: `${ROOT_URL}supervisor/profile-picture`,
       Customers: `${ROOT_URL}supervisor/customers`,
       AuditLogs: `${ROOT_URL}supervisor/audit-logs`,
+      Missions: `${ROOT_URL}supervisor/missions`,
     },
     Signup: {
       Request: `${ROOT_URL}signup/request`,

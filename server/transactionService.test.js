@@ -30,6 +30,10 @@ test('upload recalculates reward tier from the updated lifetime volume', async (
         tierUpdates.push(params);
         return [{}];
       }
+      if (sql.includes('DATE_FORMAT(CURRENT_DATE()')) return [[{ today: '2026-09-27' }]];
+      if (sql.includes('SELECT COUNT(*) AS transaction_count')) return [[{ transaction_count: 1 }]];
+      if (sql.includes('FROM customer_login_days')) return [[]];
+      if (sql.includes('FROM daily_missions')) return [[]];
       throw new Error(`Unexpected query: ${sql}`);
     },
   };
@@ -82,6 +86,10 @@ test('lifetime volume includes only completed send transactions', async () => {
       }
       if (sql.includes('SELECT lifetime_transaction_volume FROM customer_usage')) return [[{ lifetime_transaction_volume: 0 }]];
       if (sql.includes('UPDATE customer_usage SET reward_tier')) return [{}];
+      if (sql.includes('DATE_FORMAT(CURRENT_DATE()')) return [[{ today: '2026-09-27' }]];
+      if (sql.includes('SELECT COUNT(*) AS transaction_count')) return [[{ transaction_count: 3 }]];
+      if (sql.includes('FROM customer_login_days')) return [[]];
+      if (sql.includes('FROM daily_missions')) return [[]];
       throw new Error(`Unexpected query: ${sql}`);
     },
   };

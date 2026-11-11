@@ -166,6 +166,77 @@ const MIGRATIONS = [
       }
     },
   },
+  {
+    id: '009_daily_missions',
+    async up(conn) {
+      await conn.query(`
+        CREATE TABLE IF NOT EXISTS daily_missions (
+          id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+          title VARCHAR(255) NOT NULL,
+          description VARCHAR(500) NOT NULL,
+          mission_type ENUM('Transaction Count', 'Login Streak') NOT NULL,
+          target INT UNSIGNED NOT NULL,
+          reward_points INT UNSIGNED NOT NULL,
+          status ENUM('Active', 'Inactive') NOT NULL DEFAULT 'Active',
+          icon VARCHAR(64) NOT NULL DEFAULT 'spark',
+          tone VARCHAR(32) NOT NULL DEFAULT 'purple',
+          created_by BIGINT UNSIGNED NULL,
+          created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          INDEX idx_daily_missions_status (status),
+          INDEX idx_daily_missions_created_at (created_at)
+        )
+      `);
+
+      const [rows] = await conn.query('SELECT COUNT(*) AS count FROM daily_missions');
+      if (Number(rows[0]?.count) === 0) {
+        await conn.query(`
+          INSERT INTO daily_missions
+            (title, description, mission_type, target, reward_points, status, icon, tone)
+          VALUES
+            ('Play 3 Games', 'Play any three eligible games today and earn bonus points.', 'Transaction Count', 3, 250, 'Active', 'gamepad', 'purple'),
+            ('Keep Your Streak', 'Log in and play today to keep your daily streak alive.', 'Login Streak', 1, 100, 'Active', 'spark', 'gold'),
+            ('Try Something New', 'Play a game you have not played this week.', 'Transaction Count', 1, 150, 'Inactive', 'gift', 'cyan')
+        `);
+      }
+    },
+  },
+  {
+    id: '010_customer_login_days',
+    async up(conn) {
+      await conn.query(`
+        CREATE TABLE IF NOT EXISTS customer_login_days (
+          phone VARCHAR(20) NOT NULL,
+          activity_date DATE NOT NULL,
+          created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (phone, activity_date),
+          CONSTRAINT fk_customer_login_days_customer
+            FOREIGN KEY (phone) REFERENCES customers(phone) ON DELETE CASCADE
+        )
+      `);
+    },
+  },
+  {
+    id: '011_customer_points_ledger',
+    async up(conn) {
+      await conn.query(`
+        CREATE TABLE IF NOT EXISTS customer_points_ledger (
+          id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+          phone VARCHAR(20) NOT NULL,
+          mission_id BIGINT UNSIGNED NOT NULL,
+          points INT UNSIGNED NOT NULL,
+          activity_date DATE NOT NULL,
+          created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE KEY uq_customer_mission_award (phone, mission_id, activity_date),
+          INDEX idx_customer_points_ledger_phone_date (phone, activity_date),
+          CONSTRAINT fk_customer_points_ledger_customer
+            FOREIGN KEY (phone) REFERENCES customers(phone) ON DELETE CASCADE,
+          CONSTRAINT fk_customer_points_ledger_mission
+            FOREIGN KEY (mission_id) REFERENCES daily_missions(id)
+        )
+      `);
+    },
+  },
 ];
 
 async function migrateDatabase() {

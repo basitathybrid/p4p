@@ -10,6 +10,10 @@ const { sendTemporaryPasswordEmail } = require('./services/emailService');
 const { signCustomerToken, signSupervisorToken, signBasicUserToken, requireCustomerAuth, requireSupervisorAuth, requireBasicUserAuth, requireAuth } = require('./auth');
 const { importTransactions } = require('./transactionService');
 const { writeAuditLog } = require('./auditLog');
+const {
+  recordCustomerLogin,
+  refreshCustomerMissionAwards,
+} = require('./missionService');
 const { TIER_RANK, getTierThresholds, tierForVolume, validateThresholds } = require('./tierService');
 const {
   MAX_PROFILE_IMAGE_BYTES,
@@ -56,6 +60,62 @@ function requireSupervisor(req, res, next) {
   }
 
   return next();
+}
+
+function formatDailyMission(row) {
+  return {
+    id: row.id,
+    title: row.title,
+    description: row.description,
+    missionType: row.mission_type,
+    target: Number(row.target),
+    reward: `${Number(row.reward_points)} points`,
+    status: row.status,
+    icon: row.icon,
+    tone: row.tone,
+    progress: 0,
+  };
+}
+
+function validateDailyMissionPayload(payload = {}) {
+  const title = String(payload.title || '').trim();
+  const missionType = String(payload.missionType || '');
+  const target = Number(payload.target);
+  const rewardValue = payload.rewardPoints ?? payload.reward;
+  const rewardPoints = Number(String(rewardValue ?? '').replace(/\s*points?$/i, '').trim());
+  const status = String(payload.status || 'Active');
+
+  if (!title || title.length > 255) {
+    return { error: 'Mission name is required and must be 255 characters or fewer.' };
+  }
+  if (!['Transaction Count', 'Login Streak'].includes(missionType)) {
+    return { error: 'Select a valid mission type.' };
+  }
+  if (!Number.isSafeInteger(target) || target < 1 || target > 2147483647) {
+    return { error: 'Requirement must be a positive whole number.' };
+  }
+  if (rewardValue == null || String(rewardValue).trim() === '') {
+    return { error: 'Reward points are required.' };
+  }
+  if (!Number.isSafeInteger(rewardPoints) || rewardPoints < 0 || rewardPoints > 2147483647) {
+    return { error: 'Reward points must be a non-negative whole number.' };
+  }
+  if (!['Active', 'Inactive'].includes(status)) {
+    return { error: 'Select a valid mission status.' };
+  }
+
+  return {
+    value: {
+      title,
+      missionType,
+      target,
+      rewardPoints,
+      status,
+      description: missionType === 'Login Streak'
+        ? `Log in for ${target} consecutive days`
+        : `Complete ${target} transactions`,
+    },
+  };
 }
 
 async function loginSupervisor(identifier, password) {
@@ -258,6 +318,7 @@ app.post('/api/auth/login', async (req, res) => {
     const customerResult = await loginCustomer(loginIdentifier, password);
 
     if (customerResult.success) {
+      await recordCustomerLogin(customerResult.phone);
       const application = await getApplication(customerResult.phone);
       const token = signCustomerToken(customerResult.phone);
 
@@ -444,6 +505,103 @@ app.put('/api/supervisor/profile', requireSupervisorAuth, async (req, res) => {
   } catch (error) {
     console.error('update supervisor profile failed:', error);
     return res.status(500).json({ success: false, code: 'SERVER_ERROR', message: 'Unable to update supervisor profile.' });
+  }
+});
+
+app.get('/api/supervisor/missions', requireSupervisorAuth, async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      `SELECT id, title, description, mission_type, target, reward_points, status, icon, tone
+       FROM daily_missions ORDER BY created_at ASC, id ASC`,
+    );
+    return res.status(200).json({ success: true, missions: rows.map(formatDailyMission) });
+  } catch (error) {
+    console.error('load supervisor daily missions failed:', error);
+    return res.status(500).json({ success: false, code: 'SERVER_ERROR', message: 'Unable to load daily missions.' });
+  }
+});
+
+app.post('/api/supervisor/missions', requireSupervisorAuth, async (req, res) => {
+  const validation = validateDailyMissionPayload(req.body);
+  if (validation.error) {
+    return res.status(400).json({ success: false, code: 'VALIDATION_ERROR', message: validation.error });
+  }
+
+  try {
+    const { title, description, missionType, target, rewardPoints, status } = validation.value;
+    const [result] = await db.query(
+      `INSERT INTO daily_missions
+         (title, description, mission_type, target, reward_points, status, created_by)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [title, description, missionType, target, rewardPoints, status, req.user.id],
+    );
+    const [rows] = await db.query(
+      `SELECT id, title, description, mission_type, target, reward_points, status, icon, tone
+       FROM daily_missions WHERE id = ? LIMIT 1`,
+      [result.insertId],
+    );
+    return res.status(201).json({ success: true, mission: formatDailyMission(rows[0]) });
+  } catch (error) {
+    console.error('create daily mission failed:', error);
+    return res.status(500).json({ success: false, code: 'SERVER_ERROR', message: 'Unable to create daily mission.' });
+  }
+});
+
+app.put('/api/supervisor/missions/:id', requireSupervisorAuth, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isSafeInteger(id) || id < 1) {
+    return res.status(400).json({ success: false, code: 'VALIDATION_ERROR', message: 'Select a valid mission.' });
+  }
+
+  const validation = validateDailyMissionPayload(req.body);
+  if (validation.error) {
+    return res.status(400).json({ success: false, code: 'VALIDATION_ERROR', message: validation.error });
+  }
+
+  try {
+    const { title, description, missionType, target, rewardPoints, status } = validation.value;
+    await db.query(
+      `UPDATE daily_missions
+       SET title = ?, description = ?, mission_type = ?, target = ?, reward_points = ?, status = ?
+       WHERE id = ?`,
+      [title, description, missionType, target, rewardPoints, status, id],
+    );
+    const [rows] = await db.query(
+      `SELECT id, title, description, mission_type, target, reward_points, status, icon, tone
+       FROM daily_missions WHERE id = ? LIMIT 1`,
+      [id],
+    );
+    if (!rows[0]) {
+      return res.status(404).json({ success: false, code: 'NOT_FOUND', message: 'Daily mission not found.' });
+    }
+    return res.status(200).json({ success: true, mission: formatDailyMission(rows[0]) });
+  } catch (error) {
+    console.error('update daily mission failed:', error);
+    return res.status(500).json({ success: false, code: 'SERVER_ERROR', message: 'Unable to update daily mission.' });
+  }
+});
+
+app.patch('/api/supervisor/missions/:id/status', requireSupervisorAuth, async (req, res) => {
+  const id = Number(req.params.id);
+  const status = String(req.body?.status || '');
+  if (!Number.isSafeInteger(id) || id < 1 || !['Active', 'Inactive'].includes(status)) {
+    return res.status(400).json({ success: false, code: 'VALIDATION_ERROR', message: 'Select a valid mission status.' });
+  }
+
+  try {
+    await db.query('UPDATE daily_missions SET status = ? WHERE id = ?', [status, id]);
+    const [rows] = await db.query(
+      `SELECT id, title, description, mission_type, target, reward_points, status, icon, tone
+       FROM daily_missions WHERE id = ? LIMIT 1`,
+      [id],
+    );
+    if (!rows[0]) {
+      return res.status(404).json({ success: false, code: 'NOT_FOUND', message: 'Daily mission not found.' });
+    }
+    return res.status(200).json({ success: true, mission: formatDailyMission(rows[0]) });
+  } catch (error) {
+    console.error('update daily mission status failed:', error);
+    return res.status(500).json({ success: false, code: 'SERVER_ERROR', message: 'Unable to update daily mission status.' });
   }
 });
 
@@ -723,6 +881,48 @@ app.put('/api/customer/profile', requireCustomerAuth, async (req, res) => {
   }
 });
 
+app.get('/api/customer/missions', requireCustomerAuth, async (req, res) => {
+  try {
+    const activity = await refreshCustomerMissionAwards(req.customerPhone);
+    const [rows] = await db.query(
+      `SELECT id, title, description, mission_type, target, reward_points, status, icon, tone
+       FROM daily_missions WHERE status = 'Active' ORDER BY created_at ASC, id ASC`,
+    );
+    const [[completionRows], [pointsRows]] = await Promise.all([
+      db.query(
+        `SELECT mission_id
+         FROM customer_points_ledger
+         WHERE phone = ? AND activity_date = CURRENT_DATE()`,
+        [req.customerPhone],
+      ),
+      db.query(
+        'SELECT COALESCE(SUM(points), 0) AS points_balance FROM customer_points_ledger WHERE phone = ?',
+        [req.customerPhone],
+      ),
+    ]);
+    const completedMissionIds = new Set(completionRows.map((row) => Number(row.mission_id)));
+    return res.status(200).json({
+      success: true,
+      missions: rows.map((row) => {
+        const mission = formatDailyMission(row);
+        const progress = row.mission_type === 'Login Streak'
+          ? activity.loginStreak
+          : activity.transactionCount;
+        return {
+          ...mission,
+          progress: Math.min(progress, mission.target),
+          completed: completedMissionIds.has(Number(row.id)),
+        };
+      }),
+      loginStreak: activity.loginStreak,
+      pointsBalance: Number(pointsRows[0]?.points_balance || 0),
+    });
+  } catch (error) {
+    console.error('load customer daily missions failed:', error);
+    return res.status(500).json({ success: false, code: 'SERVER_ERROR', message: 'Unable to load daily missions.' });
+  }
+});
+
 app.get('/api/customer/session', requireCustomerAuth, async (req, res) => {
   try {
     const application = await getApplication(req.customerPhone);
@@ -731,6 +931,7 @@ app.get('/api/customer/session', requireCustomerAuth, async (req, res) => {
       return res.status(404).json({ success: false, code: 'NOT_FOUND', message: 'Application not found.' });
     }
 
+    await refreshCustomerMissionAwards(req.customerPhone);
     const [usageRows] = await db.query(
       `SELECT lifetime_transaction_volume, transaction_count, last_activity_at,
               COALESCE(tier_override, reward_tier) AS reward_tier,
@@ -747,11 +948,16 @@ app.get('/api/customer/session', requireCustomerAuth, async (req, res) => {
     const [tierThresholds] = await db.query(
       'SELECT tier_name AS name, minimum_volume AS minimum FROM tier_thresholds ORDER BY minimum_volume ASC'
     );
+    const [pointsRows] = await db.query(
+      'SELECT COALESCE(SUM(points), 0) AS points_balance FROM customer_points_ledger WHERE phone = ?',
+      [req.customerPhone],
+    );
 
     return res.status(200).json({
       success: true,
       status: application.status,
       application,
+      pointsBalance: Number(pointsRows[0]?.points_balance || 0),
       usage: usageRows[0] || {
         lifetime_transaction_volume: 0,
         transaction_count: 0,

@@ -38,6 +38,7 @@ export function AppLayout({ route, children }) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [displayUser, setDisplayUser] = useState(currentRole.user)
+  const [pointsBalance, setPointsBalance] = useState(null)
   const { profileImage: toolbarProfileImage } = useProfilePicture(route)
   const [toolbarImageFailed, setToolbarImageFailed] = useState(false)
   const [showChangePassword, setShowChangePassword] = useState(false)
@@ -65,6 +66,7 @@ export function AppLayout({ route, children }) {
 
   useEffect(() => {
     const nextDisplayUser = { ...currentRole.user }
+    setPointsBalance(null)
 
     if (route === 'supervisor') {
       const name = localStorage.getItem('p4p_supervisor_name')
@@ -127,6 +129,7 @@ export function AppLayout({ route, children }) {
     fetch(config.REST_API.Customer.Session, { headers: { Authorization: `Bearer ${token}` } })
       .then((response) => (response.ok ? response.json() : null))
       .then((data) => {
+        setPointsBalance(data ? Number(data.pointsBalance) || 0 : null)
         if (data?.application?.name) {
           setDisplayUser({
             name: data.application.name,
@@ -322,7 +325,7 @@ export function AppLayout({ route, children }) {
             {route === 'customer' && (
               <div className="topbar-points-card" aria-label="My points">
                 <span className="topbar-points-coin">$</span>
-                <div><strong>450</strong><small>My points</small></div>
+                <div><strong>{pointsBalance === null ? '—' : pointsBalance.toLocaleString()}</strong><small>My points</small></div>
               </div>
             )}
             <div className="toolbar-user-menu" ref={menuRef}>
