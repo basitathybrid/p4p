@@ -25,6 +25,7 @@ const config = {
       Profile: `${ROOT_URL}supervisor/profile`,
       ProfilePicture: `${ROOT_URL}supervisor/profile-picture`,
       Customers: `${ROOT_URL}supervisor/customers`,
+      MissionRewards: (phone) => `${ROOT_URL}supervisor/customers/${encodeURIComponent(phone)}/mission-rewards`,
       AuditLogs: `${ROOT_URL}supervisor/audit-logs`,
       Missions: `${ROOT_URL}supervisor/missions`,
     },

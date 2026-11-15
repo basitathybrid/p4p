@@ -2,6 +2,7 @@ import { Fragment, useEffect, useState } from 'react'
 import config from '../../config'
 import { notifyAuditLogUpdated, notifyCustomerStatusUpdated } from '../../auditEvents'
 import { CustomerUsageProfile } from './CustomerUsageProfile'
+import { SupervisorMissionRewards } from './SupervisorMissionRewards'
 import { Icon, StatusBadge, TierBadge } from './Icon'
 
 const EMPTY_FILTERS = {
@@ -327,6 +328,7 @@ export function SupervisorCustomerDirectory() {
             )}
             {profileStatus.message && <div className={`status-banner ${profileStatus.type}`} role="alert">{profileStatus.message}</div>}
             <CustomerUsageProfile phone={selectedCustomer.phone} role="supervisor" />
+            <SupervisorMissionRewards key={selectedCustomer.phone} phone={selectedCustomer.phone} />
           </section>
         </div>
       )}

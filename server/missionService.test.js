@@ -20,9 +20,9 @@ test('mission awards are only inserted when the corresponding target is reached'
     async query(sql, params) {
       if (sql.includes('FROM daily_missions')) {
         return [[
-          { id: 1, mission_type: 'Transaction Count', target: 3, reward_points: 250 },
-          { id: 2, mission_type: 'Login Streak', target: 2, reward_points: 100 },
-          { id: 3, mission_type: 'Transaction Count', target: 10, reward_points: 500 },
+          { id: 1, title: 'Transactions', mission_type: 'Transaction Count', target: 3, reward_points: 250 },
+          { id: 2, title: 'Streak', mission_type: 'Login Streak', target: 2, reward_points: 100 },
+          { id: 3, title: 'More transactions', mission_type: 'Transaction Count', target: 10, reward_points: 500 },
         ]];
       }
       if (sql.includes('INSERT IGNORE INTO customer_points_ledger')) {
@@ -41,8 +41,8 @@ test('mission awards are only inserted when the corresponding target is reached'
   });
 
   assert.deepEqual(awards, [
-    ['19195550147', 1, 250, '2026-11-12'],
-    ['19195550147', 2, 100, '2026-11-12'],
+    ['19195550147', 1, 250, '2026-11-12', 'Transactions'],
+    ['19195550147', 2, 100, '2026-11-12', 'Streak'],
   ]);
 });
 

@@ -1134,6 +1134,54 @@ app.get('/api/supervisor/audit-logs', requireSupervisorAuth, async (req, res) =>
   }
 });
 
+app.get('/api/supervisor/customers/:phone/mission-rewards', requireSupervisorAuth, async (req, res) => {
+  const phone = normalizePhone(req.params.phone);
+  const requestedPage = Number.parseInt(req.query.page, 10) || 1;
+  const pageSize = 25;
+
+  try {
+    const [customers] = await db.query('SELECT phone FROM applications WHERE phone = ? LIMIT 1', [phone]);
+    if (!customers[0]) {
+      return res.status(404).json({ success: false, code: 'NOT_FOUND', message: 'Customer profile not found.' });
+    }
+
+    const [[{ total }]] = await db.query(
+      'SELECT COUNT(*) AS total FROM customer_points_ledger WHERE phone = ?',
+      [phone],
+    );
+    const pageCount = Math.max(1, Math.ceil(Number(total) / pageSize));
+    const page = Math.min(Math.max(requestedPage, 1), pageCount);
+    const [rewards] = await db.query(
+      `SELECT ledger.id, ledger.points,
+              DATE_FORMAT(ledger.activity_date, '%Y-%m-%d') AS activityDate,
+              ledger.created_at AS awardedAt,
+              COALESCE(ledger.mission_title, mission.title) AS missionTitle,
+              ledger.mission_title IS NULL AS usesCurrentMissionTitle
+       FROM customer_points_ledger ledger
+       JOIN daily_missions mission ON mission.id = ledger.mission_id
+       WHERE ledger.phone = ?
+       ORDER BY ledger.activity_date DESC, ledger.id DESC
+       LIMIT ? OFFSET ?`,
+      [phone, pageSize, (page - 1) * pageSize],
+    );
+    return res.status(200).json({
+      success: true,
+      rewards: rewards.map((reward) => ({
+        id: reward.id,
+        points: Number(reward.points),
+        activityDate: reward.activityDate,
+        awardedAt: reward.awardedAt,
+        description: `Daily Mission Reward - ${reward.missionTitle}`,
+        usesCurrentMissionTitle: Boolean(reward.usesCurrentMissionTitle),
+      })),
+      pagination: { page, pageSize, pageCount, total: Number(total) },
+    });
+  } catch (error) {
+    console.error('load supervisor mission rewards failed:', error);
+    return res.status(500).json({ success: false, code: 'SERVER_ERROR', message: 'Unable to load mission rewards.' });
+  }
+});
+
 app.get('/api/internal/customers/:phone/profile', requireAuth(), async (req, res) => {
   if (!['basic', 'supervisor'].includes(req.user.role)) {
     return res.status(403).json({ success: false, code: 'FORBIDDEN', message: 'Access denied.' });

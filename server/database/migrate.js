@@ -237,6 +237,18 @@ const MIGRATIONS = [
       `);
     },
   },
+  {
+    id: '012_mission_award_title',
+    async up(conn) {
+      const [columns] = await conn.query(
+        `SELECT COUNT(*) AS count FROM information_schema.columns
+         WHERE table_schema = DATABASE() AND table_name = 'customer_points_ledger' AND column_name = 'mission_title'`,
+      );
+      if (!columns[0].count) {
+        await conn.query('ALTER TABLE customer_points_ledger ADD COLUMN mission_title VARCHAR(255) NULL');
+      }
+    },
+  },
 ];
 
 async function migrateDatabase() {

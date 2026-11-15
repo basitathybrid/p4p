@@ -69,7 +69,7 @@ function getMissionProgress(mission, activity) {
 
 async function awardCompletedMissions(conn, phone, activity) {
   const [missions] = await conn.query(
-    `SELECT id, mission_type, target, reward_points
+    `SELECT id, title, mission_type, target, reward_points
      FROM daily_missions WHERE status = 'Active'`,
   );
 
@@ -80,9 +80,9 @@ async function awardCompletedMissions(conn, phone, activity) {
 
     await conn.query(
       `INSERT IGNORE INTO customer_points_ledger
-         (phone, mission_id, points, activity_date)
-       VALUES (?, ?, ?, ?)`,
-      [phone, mission.id, mission.reward_points, activity.today],
+         (phone, mission_id, points, activity_date, mission_title)
+       VALUES (?, ?, ?, ?, ?)`,
+      [phone, mission.id, mission.reward_points, activity.today, mission.title],
     );
   }
 }
