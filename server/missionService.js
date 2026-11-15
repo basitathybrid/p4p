@@ -6,13 +6,13 @@ function dateOffset(dateString, days) {
   return date.toISOString().slice(0, 10);
 }
 
-function calculateLoginStreak(activityDates, today) {
+function calculateLoginStreak(activityDates, today, afterDate = null) {
   const recordedDates = new Set(activityDates);
   let expectedDate = recordedDates.has(today) ? today : dateOffset(today, -1);
   if (!recordedDates.has(expectedDate)) return 0;
 
   let streak = 0;
-  while (recordedDates.has(expectedDate)) {
+  while (recordedDates.has(expectedDate) && (!afterDate || expectedDate > afterDate)) {
     streak += 1;
     expectedDate = dateOffset(expectedDate, -1);
   }
@@ -29,23 +29,42 @@ async function getCustomerMissionActivity(conn, phone) {
      FROM transactions
      WHERE phone = ?
        AND LOWER(TRIM(transaction_status)) = 'completed'
-       AND transaction_datetime >= CURRENT_DATE()
-       AND transaction_datetime < DATE_ADD(CURRENT_DATE(), INTERVAL 1 DAY)`,
-    [phone],
+       AND transaction_datetime >= ?
+       AND transaction_datetime < DATE_ADD(?, INTERVAL 1 DAY)`,
+    [phone, today, today],
   );
   const [loginRows] = await conn.query(
     `SELECT DATE_FORMAT(activity_date, "%Y-%m-%d") AS activity_date
      FROM customer_login_days
-     WHERE phone = ? AND activity_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 100 YEAR)
+     WHERE phone = ? AND activity_date >= DATE_SUB(?, INTERVAL 100 YEAR)
      ORDER BY activity_date DESC`,
-    [phone],
+    [phone, today],
   );
+  const [awardRows] = await conn.query(
+    `SELECT mission_id, DATE_FORMAT(MAX(activity_date), "%Y-%m-%d") AS last_award_date
+     FROM customer_points_ledger
+     WHERE phone = ? AND activity_date < ?
+     GROUP BY mission_id`,
+    [phone, today],
+  );
+  const loginDates = loginRows.map((row) => row.activity_date);
 
   return {
     today,
     transactionCount: Number(transactionRows[0]?.transaction_count || 0),
-    loginStreak: calculateLoginStreak(loginRows.map((row) => row.activity_date), today),
+    loginDates,
+    loginStreak: calculateLoginStreak(loginDates, today),
+    lastMissionAwards: new Map(awardRows.map((row) => [String(row.mission_id), row.last_award_date])),
   };
+}
+
+function getMissionProgress(mission, activity) {
+  if (mission.mission_type !== 'Login Streak') return activity.transactionCount;
+  return calculateLoginStreak(
+    activity.loginDates,
+    activity.today,
+    activity.lastMissionAwards.get(String(mission.id)),
+  );
 }
 
 async function awardCompletedMissions(conn, phone, activity) {
@@ -55,10 +74,9 @@ async function awardCompletedMissions(conn, phone, activity) {
   );
 
   for (const mission of missions) {
-    const progress = mission.mission_type === 'Login Streak'
-      ? activity.loginStreak
-      : activity.transactionCount;
+    const progress = getMissionProgress(mission, activity);
     if (progress < Number(mission.target)) continue;
+    if (mission.mission_type === 'Login Streak' && !activity.loginDates.includes(activity.today)) continue;
 
     await conn.query(
       `INSERT IGNORE INTO customer_points_ledger
@@ -107,6 +125,7 @@ async function refreshCustomerMissionAwards(phone) {
 
 module.exports = {
   calculateLoginStreak,
+  getMissionProgress,
   getCustomerMissionActivity,
   awardCompletedMissions,
   recordCustomerLogin,

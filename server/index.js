@@ -13,6 +13,7 @@ const { writeAuditLog } = require('./auditLog');
 const {
   recordCustomerLogin,
   refreshCustomerMissionAwards,
+  getMissionProgress,
 } = require('./missionService');
 const { TIER_RANK, getTierThresholds, tierForVolume, validateThresholds } = require('./tierService');
 const {
@@ -892,8 +893,8 @@ app.get('/api/customer/missions', requireCustomerAuth, async (req, res) => {
       db.query(
         `SELECT mission_id
          FROM customer_points_ledger
-         WHERE phone = ? AND activity_date = CURRENT_DATE()`,
-        [req.customerPhone],
+         WHERE phone = ? AND activity_date = ?`,
+        [req.customerPhone, activity.today],
       ),
       db.query(
         'SELECT COALESCE(SUM(points), 0) AS points_balance FROM customer_points_ledger WHERE phone = ?',
@@ -905,13 +906,14 @@ app.get('/api/customer/missions', requireCustomerAuth, async (req, res) => {
       success: true,
       missions: rows.map((row) => {
         const mission = formatDailyMission(row);
-        const progress = row.mission_type === 'Login Streak'
-          ? activity.loginStreak
-          : activity.transactionCount;
+        const completed = completedMissionIds.has(Number(row.id));
+        const progress = getMissionProgress(row, activity);
         return {
           ...mission,
-          progress: Math.min(progress, mission.target),
-          completed: completedMissionIds.has(Number(row.id)),
+          progress: completed && row.mission_type === 'Login Streak'
+            ? mission.target
+            : Math.min(progress, mission.target),
+          completed,
         };
       }),
       loginStreak: activity.loginStreak,

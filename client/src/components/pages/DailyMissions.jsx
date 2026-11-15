@@ -57,7 +57,7 @@ function CustomerMissions() {
         </div>
         <div className="mission-streak-card"><span className="streak-flame">✦</span><div><strong>{loginStreak === null ? '—' : `${loginStreak} day${loginStreak === 1 ? '' : 's'} streak`}</strong><small>{loginStreak > 0 ? 'Keep it going!' : 'Log in today to start your streak!'}</small></div></div>
       </section>
-      <div className="mission-list-header"><h2>Today&apos;s missions</h2><span>Refreshes daily at midnight</span></div>
+      <div className="mission-list-header"><h2>Today&apos;s missions</h2><span>Transaction missions refresh daily</span></div>
       <section className="mission-card-grid">
         {loading && <p role="status">Loading daily missions...</p>}
         {missionError && <p className="mission-api-message" role="alert">{missionError}</p>}
