@@ -14,10 +14,11 @@ import { Icon, StatusBadge } from '../ui/Icon'
 import { GlobalLoader } from '../ui/GlobalLoader'
 
 const POPULAR_GAMES = [
-  { name: 'Golden Dragon', image: goldenDragonImg },
-  { name: 'Magic City', image: magicCityImg },
-  { name: 'Ultra Panda', image: ultraPandaImg },
-  { name: 'VBLink', image: vblinkImg },
+  { name: 'Golden Dragon', image: goldenDragonImg, url: 'https://playgd.mobi' },
+  { name: 'Magic City', image: magicCityImg, url: 'https://www.magiccity777.com' },
+  { name: 'Ultrathunder', image: ultraPandaImg, url: 'https://www.ultrathunder.mobi' },
+  { name: 'Dragon Fury', image: vblinkImg, url: 'https://www.dragonfury.club' },
+  { name: 'Play4Poker', image: '/assets/games/Play4Poker.png', url: 'https://4king.poker' },
 ]
 
 function formatCurrency(value) {
@@ -199,6 +200,28 @@ function CustomerApprovedDashboard({ application, usage, transactions }) {
   const accountName = application?.name || ''
   const profileImageKey = `p4p_customer_profile_image_${application?.phone || 'demo'}`
   const { profileImage } = useProfilePicture('customer', profileImageKey)
+  const [missionState, setMissionState] = useState({ loading: true, error: '', missions: [] })
+
+  useEffect(() => {
+    const controller = new AbortController()
+    const token = window.localStorage.getItem('p4p_customer_token')
+
+    fetch(config.REST_API.Customer.Missions, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        const data = await response.json().catch(() => null)
+        if (!response.ok) throw new Error(data?.message || 'Unable to load daily missions.')
+        setMissionState({ loading: false, error: '', missions: data?.missions || [] })
+      })
+      .catch((error) => {
+        if (controller.signal.aborted) return
+        setMissionState({ loading: false, error: error.message, missions: [] })
+      })
+
+    return () => controller.abort()
+  }, [])
 
   const dashboardStats = roles.customer.metrics.map((metric) => {
     const isLastActivity = metric.label.includes('Last Activity')
@@ -239,6 +262,51 @@ function CustomerApprovedDashboard({ application, usage, transactions }) {
 
         <section className="top-cards-grid">
           <CustomerOverview application={application} usage={usage} profileImage={profileImage} />
+        </section>
+
+        <section className="dashboard-missions panel-card" aria-labelledby="dashboard-missions-title">
+          <div className="dashboard-missions-header">
+            <div className="dashboard-missions-heading">
+              <span className="dashboard-missions-mark"><Icon name="spark" /></span>
+              <div>
+                <h2 id="dashboard-missions-title">Complete Today&apos;s Missions</h2>
+                <p>Play, transact and log in daily to earn extra points!</p>
+              </div>
+            </div>
+            <Link to="/customer/missions" className="dashboard-missions-view">View all <Icon name="arrowRight" /></Link>
+          </div>
+
+          <div className="dashboard-mission-list">
+            {missionState.loading && <p className="dashboard-missions-message" role="status">Loading daily missions...</p>}
+            {missionState.error && <p className="dashboard-missions-message error" role="alert">{missionState.error}</p>}
+            {!missionState.loading && !missionState.error && missionState.missions.length === 0 && (
+              <p className="dashboard-missions-message">No active missions right now. Check back later.</p>
+            )}
+            {missionState.missions.map((mission) => {
+              const progress = Number(mission.progress) || 0
+              const target = Number(mission.target) || 0
+              const percent = target > 0 ? Math.min(100, Math.max(0, (progress / target) * 100)) : 0
+              const reward = String(mission.reward)
+
+              return (
+                <article className={`dashboard-mission-row${mission.completed ? ' complete' : ''}`} key={mission.id}>
+                  <span className="dashboard-mission-icon"><Icon name={mission.icon} /></span>
+                  <div className="dashboard-mission-copy">
+                    <h3>{mission.title}</h3>
+                    <p>{mission.description}</p>
+                  </div>
+                  <div className="dashboard-mission-progress">
+                    <div className="dashboard-mission-progress-label"><span>{progress} / {target}{mission.missionType === 'Login Streak' ? ' days' : ''}</span><strong>{Math.round(percent)}%</strong></div>
+                    <div className="dashboard-mission-progress-track" role="progressbar" aria-label={`${mission.title} progress`} aria-valuemin="0" aria-valuemax={target} aria-valuenow={Math.min(progress, target)}>
+                      <span style={{ width: `${percent}%` }} />
+                    </div>
+                  </div>
+                  <span className="dashboard-mission-status">{mission.completed ? 'Completed' : 'In Progress'}</span>
+                  <strong className="dashboard-mission-reward">{reward.startsWith('+') ? reward : `+${reward}`}</strong>
+                </article>
+              )
+            })}
+          </div>
         </section>
 
         <section className="dashboard-stat-grid">
@@ -306,10 +374,17 @@ function CustomerApprovedDashboard({ application, usage, transactions }) {
 
             <div className="games-grid">
               {POPULAR_GAMES.map((game, index) => (
-                <div key={game.name} className={`game-tile tile-${index + 1}`}>
-                  <img src={game.image} alt={game.name} />
-                  <span>{game.name}</span>
-                </div>
+                game.url ? (
+                  <a key={game.name} href={game.url} target="_blank" rel="noopener noreferrer" className={`game-tile tile-${index + 1}`}>
+                    <img src={game.image} alt={game.name} />
+                    <span>{game.name}</span>
+                  </a>
+                ) : (
+                  <div key={game.name} className={`game-tile tile-${index + 1}`}>
+                    <img src={game.image} alt={game.name} />
+                    <span>{game.name}</span>
+                  </div>
+                )
               ))}
             </div>
           </div>

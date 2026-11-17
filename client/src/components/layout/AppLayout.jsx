@@ -14,21 +14,21 @@ export function AppLayout({ route, children }) {
   const navigate = useNavigate()
   const customerSidebar = [
     { label: 'Home', icon: 'home', to: '/customer' },
-    { label: 'Rewards', icon: 'gift', to: '/customer' },
     { label: 'Transactions', icon: 'history', to: '/customer' },
-    { label: 'Play & Earn', icon: 'controller', to: '/customer' },
     { label: 'Daily Missions', icon: 'spark', to: '/customer/missions' },
+    { label: 'Claim Game Credit', icon: 'controller', to: '/customer' },
+    { label: 'Birthday Freeplay', icon: 'gift', to: '/customer' },
     { label: 'My Profile', icon: 'user', to: '/customer' },
     { label: 'Settings', icon: 'settings', to: '/customer/settings' },
-    { label: 'Support', icon: 'headset', to: '/customer' },
+    { label: 'Chat With Us', icon: 'headset', to: '/customer' },
     { label: 'FAQ', icon: 'question', to: '/customer' },
   ]
   const supervisorSidebar = {
     Dashboard: 'dashboard',
     'Pending Approvals': 'pending',
-    Customers: 'user',
+    'Game credit requests': 'user',
     Transactions: 'money',
-    Uploads: 'upload',
+    'Game Credit Points': 'upload',
     'Tier Configuration': 'tier-config',
     'Daily Missions': 'spark',
     Reports: 'reports',
@@ -268,7 +268,7 @@ export function AppLayout({ route, children }) {
                 key={item.label}
                 to={item.to}
                 end={item.label !== 'Settings'}
-                className={`nav-item ${isActive ? 'active' : ''}`}
+                className={`nav-item ${item.label === 'Game credit requests' ? 'nav-item-credit-requests' : ''} ${isActive ? 'active' : ''}`}
                 onClick={() => setMobileNavOpen(false)}
               >
                 <span className="nav-icon"><Icon name={item.icon} /></span>
