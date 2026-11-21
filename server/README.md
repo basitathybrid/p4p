@@ -28,3 +28,9 @@ Supervisors manage missions through the authenticated `/api/supervisor/missions`
 Each login-streak mission has its own cycle. A successful login counts once per day; completing the target awards points on that login day. The next cycle starts with a login on a later day, and the previous award remains in the ledger. Missing a day breaks the consecutive streak; until the end of the next day, yesterday's progress remains visible so a login today can continue it. Existing awards remain intact and the most recent prior award marks the beginning of the next cycle. The streak shown in the page header is the overall consecutive-login streak, not a mission cycle. Calendar dates follow the MySQL session time zone.
 
 Supervisors can view a customer's mission reward history in Customer Directory by opening the customer profile. The supervisor-only endpoint `GET /api/supervisor/customers/:phone/mission-rewards?page=1` returns the reward description, points and dates. New awards preserve the mission title at the time of the award. Older awards predate title snapshots and are labelled in the UI with the current mission name, which may have changed.
+
+## Customer notifications
+
+Customer notifications are stored in the `notifications` table and are addressed by the customer's phone number. The authenticated `GET /api/notifications` endpoint returns the latest notifications and unread count. Customers can mark one notification read with `PATCH /api/notifications/:id/read` or all notifications read with `POST /api/notifications/read-all`.
+
+Tier changes and daily mission progress create notifications from their source transactions. Mission reminders are emitted only at two or one remaining missions, and the daily reward notification is emitted once all active missions have been credited. Event keys include the customer and cycle date so repeated page loads do not repeat a notification.

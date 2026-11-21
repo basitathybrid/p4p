@@ -2,6 +2,7 @@ const db = require('./db');
 const { writeAuditLog } = require('./auditLog');
 const { getCustomerMissionActivity, awardCompletedMissions } = require('./missionService');
 const { DEFAULT_THRESHOLDS, getTierThresholds, tierForVolume: calculateTier } = require('./tierService');
+const { createTierChangeNotification } = require('./notificationService');
 
 const TRANSACTION_TYPES = new Set(['buy', 'send', 'receive', 'sell']);
 const REQUIRED_HEADERS = [
@@ -176,18 +177,26 @@ async function importTransactions(csv, actor = null) {
       );
 
       const [usageRows] = await conn.query(
-        'SELECT lifetime_transaction_volume FROM customer_usage WHERE phone = ?',
+        'SELECT lifetime_transaction_volume, reward_tier FROM customer_usage WHERE phone = ?',
         [phone]
       );
       if (usageRows[0]) {
+        const previousTier = usageRows[0].reward_tier;
+        const nextTier = calculateTier(usageRows[0].lifetime_transaction_volume, thresholds);
         await conn.query(
           'UPDATE customer_usage SET reward_tier = ? WHERE phone = ?',
-          [calculateTier(usageRows[0].lifetime_transaction_volume, thresholds), phone]
+          [nextTier, phone]
         );
+        await createTierChangeNotification({
+          connection: conn,
+          phone,
+          previousTier,
+          newTier: nextTier,
+        });
       }
 
       const missionActivity = await getCustomerMissionActivity(conn, phone);
-      await awardCompletedMissions(conn, phone, missionActivity);
+      await awardCompletedMissions(conn, phone, missionActivity, { notify: true });
     }
 
     if (actor) {

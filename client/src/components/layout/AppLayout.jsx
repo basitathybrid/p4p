@@ -47,7 +47,18 @@ export function AppLayout({ route, children }) {
   const [passwordStatus, setPasswordStatus] = useState({ type: 'idle', message: '' })
   const [changingPassword, setChangingPassword] = useState(false)
   const [showPasswords, setShowPasswords] = useState({ oldPassword: false, newPassword: false, confirmPassword: false })
+  const [notifications, setNotifications] = useState([])
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0)
+  const [notificationsOpen, setNotificationsOpen] = useState(false)
+  const [notificationsLoading, setNotificationsLoading] = useState(false)
   const menuRef = useRef(null)
+  const notificationRef = useRef(null)
+
+  const getAuthToken = () => route === 'supervisor'
+    ? localStorage.getItem('p4p_supervisor_token')
+    : route === 'basic'
+      ? localStorage.getItem('p4p_basic_token')
+      : localStorage.getItem('p4p_customer_token')
 
   useEffect(() => {
     setToolbarImageFailed(false)
@@ -63,6 +74,43 @@ export function AppLayout({ route, children }) {
     document.addEventListener('mousedown', handleClickOutside)
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
+
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (notificationRef.current && !notificationRef.current.contains(event.target)) {
+        setNotificationsOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
+
+  useEffect(() => {
+    const token = getAuthToken()
+    if (!token) return undefined
+
+    const controller = new AbortController()
+    setNotificationsLoading(true)
+    fetch(config.REST_API.Notifications.List, {
+      headers: { Authorization: `Bearer ${token}` },
+      signal: controller.signal,
+    })
+      .then(async (response) => {
+        const data = await response.json().catch(() => null)
+        if (!response.ok) throw new Error(data?.message || 'Unable to load notifications.')
+        setNotifications(Array.isArray(data.notifications) ? data.notifications : [])
+        setUnreadNotificationCount(Number(data.unreadCount) || 0)
+      })
+      .catch((error) => {
+        if (!controller.signal.aborted) console.error('Unable to load notifications:', error)
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) setNotificationsLoading(false)
+      })
+
+    return () => controller.abort()
+  }, [route])
 
   useEffect(() => {
     const nextDisplayUser = { ...currentRole.user }
@@ -155,6 +203,46 @@ export function AppLayout({ route, children }) {
     localStorage.removeItem('p4p_basic_username')
     localStorage.removeItem('p4p_basic_email')
     navigate(route === 'supervisor' ? '/supervisorlogin' : route === 'basic' ? '/basicuserlogin' : '/login')
+  }
+
+  const handleNotificationToggle = () => {
+    setNotificationsOpen((open) => !open)
+  }
+
+  const handleNotificationRead = async (notification) => {
+    if (!notification.readAt) {
+      const token = getAuthToken()
+      setNotifications((current) => current.map((item) => item.id === notification.id ? { ...item, readAt: new Date().toISOString() } : item))
+      setUnreadNotificationCount((count) => Math.max(0, count - 1))
+
+      try {
+        const response = await fetch(config.REST_API.Notifications.MarkRead(notification.id), {
+          method: 'PATCH',
+          headers: { Authorization: `Bearer ${token}` },
+        })
+        if (!response.ok) throw new Error('Unable to mark notification read.')
+      } catch (error) {
+        console.error('Unable to mark notification read:', error)
+      }
+    }
+
+    if (notification.actionUrl) navigate(notification.actionUrl)
+  }
+
+  const handleMarkAllNotificationsRead = async () => {
+    const token = getAuthToken()
+    setNotifications((current) => current.map((item) => ({ ...item, readAt: item.readAt || new Date().toISOString() })))
+    setUnreadNotificationCount(0)
+
+    try {
+      const response = await fetch(config.REST_API.Notifications.MarkAllRead, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!response.ok) throw new Error('Unable to mark notifications read.')
+    } catch (error) {
+      console.error('Unable to mark notifications read:', error)
+    }
   }
 
   const closeChangePassword = () => {
@@ -318,9 +406,39 @@ export function AppLayout({ route, children }) {
           </button>
 
           <div className="topbar-actions">
-            <span className="notification-wrap">
-              <button className="header-icon" aria-label="Notifications"><Icon name="bell" /></button>
-              <span className="notification-badge">3</span>
+            <span className="notification-wrap" ref={notificationRef}>
+              <button type="button" className="header-icon" aria-label="Notifications" aria-expanded={notificationsOpen} onClick={handleNotificationToggle}><Icon name="bell" /></button>
+              {unreadNotificationCount > 0 && <span className="notification-badge">{unreadNotificationCount > 99 ? '99+' : unreadNotificationCount}</span>}
+              {notificationsOpen && (
+                <div className="notifications-dropdown" role="dialog" aria-label="Notifications">
+                  <div className="notifications-header">
+                    <strong>Notifications</strong>
+                    <button type="button" onClick={handleMarkAllNotificationsRead} disabled={unreadNotificationCount === 0}>Mark all read</button>
+                  </div>
+                  <div className="notifications-list">
+                    {notificationsLoading && <div className="notifications-empty">Loading notifications...</div>}
+                    {!notificationsLoading && notifications.length === 0 && <div className="notifications-empty">You’re all caught up.</div>}
+                    {!notificationsLoading && notifications.map((notification) => (
+                      <button
+                        type="button"
+                        className={`notification-item ${notification.readAt ? 'read' : 'unread'}`}
+                        key={notification.id}
+                        onClick={() => handleNotificationRead(notification)}
+                      >
+                        <span className="notification-item-title">{notification.title}</span>
+                        <span className="notification-item-message">{notification.message}</span>
+                        {notification.metadata?.actionLabel && (
+                          <span className="notification-item-action">{notification.metadata.actionLabel} <Icon name="arrowRight" /></span>
+                        )}
+                        {notification.metadata?.effectiveDateLabel && (
+                          <span className="notification-item-date">Effective {notification.metadata.effectiveDateLabel}</span>
+                        )}
+                        <span className="notification-item-date">{new Date(notification.createdAt).toLocaleString()}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
             </span>
             {route === 'customer' && (
               <div className="topbar-points-card" aria-label="My points">

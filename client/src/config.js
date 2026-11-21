@@ -1,4 +1,6 @@
-const ROOT_URL = 'http://devapi.play4perks.com/api/';
+const ROOT_URL = window.__APP_CONFIG__?.API_URL
+  ? (window.__APP_CONFIG__.API_URL.endsWith('/') ? window.__APP_CONFIG__.API_URL : `${window.__APP_CONFIG__.API_URL}/`)
+  : 'http://localhost:5000/api/';
 
 const config = {
   REST_API: {
@@ -7,6 +9,11 @@ const config = {
       Session: `${ROOT_URL}auth/session`,
       ForgotPassword: `${ROOT_URL}auth/forgot-password`,
       ChangePassword: `${ROOT_URL}auth/change-password`,
+    },
+    Notifications: {
+      List: `${ROOT_URL}notifications`,
+      MarkRead: (id) => `${ROOT_URL}notifications/${encodeURIComponent(id)}/read`,
+      MarkAllRead: `${ROOT_URL}notifications/read-all`,
     },
     Customer: {
       Session: `${ROOT_URL}customer/session`,

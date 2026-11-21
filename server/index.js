@@ -11,6 +11,13 @@ const { signCustomerToken, signSupervisorToken, signBasicUserToken, requireCusto
 const { importTransactions } = require('./transactionService');
 const { writeAuditLog } = require('./auditLog');
 const {
+  listNotifications,
+  getUnreadCount,
+  markNotificationRead,
+  markAllNotificationsRead,
+  createTierChangeNotification,
+} = require('./notificationService');
+const {
   recordCustomerLogin,
   refreshCustomerMissionAwards,
   getMissionProgress,
@@ -407,6 +414,56 @@ app.get('/api/auth/session', requireAuth(), (req, res) => {
   }
 
   return res.status(200).json({ success: true, role: req.user.role });
+});
+
+function notificationRecipient(req) {
+  return {
+    role: req.user.role,
+    id: req.user.role === 'customer' ? req.user.phone : req.user.id,
+  };
+}
+
+app.get('/api/notifications', requireAuth(), async (req, res) => {
+  try {
+    const recipient = notificationRecipient(req);
+    const limit = req.query.limit == null ? 30 : Number(req.query.limit);
+    const unreadOnly = String(req.query.unreadOnly || '').toLowerCase() === 'true';
+    const notifications = await listNotifications(recipient.role, recipient.id, { limit, unreadOnly });
+    const unreadCount = await getUnreadCount(recipient.role, recipient.id);
+    return res.status(200).json({ success: true, notifications, unreadCount });
+  } catch (error) {
+    console.error('list notifications failed:', error);
+    return res.status(500).json({ success: false, code: 'SERVER_ERROR', message: 'Unable to load notifications.' });
+  }
+});
+
+app.patch('/api/notifications/:id/read', requireAuth(), async (req, res) => {
+  try {
+    const notificationId = Number(req.params.id);
+    if (!Number.isSafeInteger(notificationId) || notificationId < 1) {
+      return res.status(400).json({ success: false, code: 'VALIDATION_ERROR', message: 'Notification ID must be a positive integer.' });
+    }
+    const recipient = notificationRecipient(req);
+    const updated = await markNotificationRead(notificationId, recipient.role, recipient.id);
+    if (!updated) {
+      return res.status(404).json({ success: false, code: 'NOT_FOUND', message: 'Notification not found.' });
+    }
+    return res.status(200).json({ success: true });
+  } catch (error) {
+    console.error('mark notification read failed:', error);
+    return res.status(500).json({ success: false, code: 'SERVER_ERROR', message: 'Unable to update notification.' });
+  }
+});
+
+app.post('/api/notifications/read-all', requireAuth(), async (req, res) => {
+  try {
+    const recipient = notificationRecipient(req);
+    const updatedCount = await markAllNotificationsRead(recipient.role, recipient.id);
+    return res.status(200).json({ success: true, updatedCount });
+  } catch (error) {
+    console.error('mark all notifications read failed:', error);
+    return res.status(500).json({ success: false, code: 'SERVER_ERROR', message: 'Unable to update notifications.' });
+  }
 });
 
 app.post('/api/auth/change-password', requireAuth(), async (req, res) => {
@@ -1330,6 +1387,12 @@ app.put('/api/tier-thresholds', requireAuth(), async (req, res) => {
       const nextTier = tierForVolume(usage.lifetime_transaction_volume, thresholds);
       await conn.query('UPDATE customer_usage SET reward_tier = ? WHERE phone = ?', [nextTier, usage.phone]);
       if (usage.reward_tier !== nextTier) {
+        await createTierChangeNotification({
+          connection: conn,
+          phone: usage.phone,
+          previousTier: usage.reward_tier,
+          newTier: nextTier,
+        });
         await writeAuditLog(req.user, 'customer_tier_changed', 'customer', usage.phone, {
           previousTier: usage.reward_tier,
           newTier: nextTier,
@@ -1390,6 +1453,12 @@ app.post('/api/review/customers/:phone/tier', requireSupervisorAuth, async (req,
         'UPDATE customer_usage SET tier_override = ?, tier_override_by = ? WHERE phone = ?',
         [tier, req.user.name || req.user.username || 'Supervisor', normalizePhone(req.params.phone)]
       );
+      await createTierChangeNotification({
+        connection: conn,
+        phone: normalizePhone(req.params.phone),
+        previousTier: usageRows[0].tier_override || usageRows[0].reward_tier,
+        newTier: tier,
+      });
       await writeAuditLog(req.user, 'customer_tier_changed', 'customer', normalizePhone(req.params.phone), {
         previousTier: usageRows[0].tier_override || usageRows[0].reward_tier,
         newTier: tier,
@@ -1412,7 +1481,7 @@ app.post('/api/review/customers/:phone/tier/revert', requireSupervisorAuth, asyn
   try {
     await conn.beginTransaction();
     const [usageRows] = await conn.query(
-      'SELECT lifetime_transaction_volume FROM customer_usage WHERE phone = ? AND tier_override IS NOT NULL',
+      'SELECT lifetime_transaction_volume, reward_tier, tier_override FROM customer_usage WHERE phone = ? AND tier_override IS NOT NULL',
       [phone]
     );
     if (!usageRows[0]) {
@@ -1426,8 +1495,14 @@ app.post('/api/review/customers/:phone/tier/revert', requireSupervisorAuth, asyn
       'UPDATE customer_usage SET reward_tier = ?, tier_override = NULL, tier_override_by = NULL WHERE phone = ?',
       [tier, phone]
     );
+    await createTierChangeNotification({
+      connection: conn,
+      phone,
+      previousTier: usageRows[0].tier_override || usageRows[0].reward_tier,
+      newTier: tier,
+    });
     await writeAuditLog(req.user, 'customer_tier_changed', 'customer', phone, {
-      previousTier: usageRows[0].tier_override,
+      previousTier: usageRows[0].tier_override || usageRows[0].reward_tier,
       newTier: tier,
       reason: 'manual_override_reverted',
     }, conn);

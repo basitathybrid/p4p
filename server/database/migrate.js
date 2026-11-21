@@ -249,6 +249,28 @@ const MIGRATIONS = [
       }
     },
   },
+  {
+    id: '013_notifications',
+    async up(conn) {
+      await conn.query(`
+        CREATE TABLE IF NOT EXISTS notifications (
+          id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+          recipient_role ENUM('customer', 'supervisor', 'basic') NOT NULL,
+          recipient_id VARCHAR(100) NOT NULL,
+          title VARCHAR(255) NOT NULL,
+          message VARCHAR(1000) NOT NULL,
+          notification_type VARCHAR(32) NOT NULL DEFAULT 'info',
+          event_key VARCHAR(128) NULL,
+          action_url VARCHAR(512) NULL,
+          metadata JSON NULL,
+          read_at DATETIME NULL,
+          created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE KEY uq_notifications_recipient_event (recipient_role, recipient_id, event_key),
+          INDEX idx_notifications_recipient (recipient_role, recipient_id, read_at, created_at)
+        )
+      `);
+    },
+  },
 ];
 
 async function migrateDatabase() {

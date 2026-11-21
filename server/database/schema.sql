@@ -202,6 +202,22 @@ CREATE TABLE IF NOT EXISTS basic_users (
   updated_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS notifications (
+  id                BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  recipient_role    ENUM('customer', 'supervisor', 'basic') NOT NULL,
+  recipient_id      VARCHAR(100) NOT NULL,
+  title             VARCHAR(255) NOT NULL,
+  message           VARCHAR(1000) NOT NULL,
+  notification_type VARCHAR(32) NOT NULL DEFAULT 'info',
+  event_key         VARCHAR(128) NULL,
+  action_url        VARCHAR(512) NULL,
+  metadata          JSON NULL,
+  read_at           DATETIME NULL,
+  created_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_notifications_recipient_event (recipient_role, recipient_id, event_key),
+  INDEX idx_notifications_recipient (recipient_role, recipient_id, read_at, created_at)
+);
+
 INSERT INTO basic_users (full_name, username, email, password_hash, role, is_active)
 VALUES (
   'Jordan Lee',
@@ -216,4 +232,3 @@ ON DUPLICATE KEY UPDATE
   password_hash = VALUES(password_hash),
   role = VALUES(role),
   is_active = VALUES(is_active);
-

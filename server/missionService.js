@@ -1,4 +1,5 @@
 const db = require('./db');
+const { createNotification } = require('./notificationService');
 
 function dateOffset(dateString, days) {
   const date = new Date(`${dateString}T00:00:00.000Z`);
@@ -67,7 +68,7 @@ function getMissionProgress(mission, activity) {
   );
 }
 
-async function awardCompletedMissions(conn, phone, activity) {
+async function awardCompletedMissions(conn, phone, activity, { notify = false } = {}) {
   const [missions] = await conn.query(
     `SELECT id, title, mission_type, target, reward_points
      FROM daily_missions WHERE status = 'Active'`,
@@ -85,6 +86,42 @@ async function awardCompletedMissions(conn, phone, activity) {
       [phone, mission.id, mission.reward_points, activity.today, mission.title],
     );
   }
+
+  if (!notify || missions.length === 0) return;
+
+  const [completedRows] = await conn.query(
+    `SELECT mission_id FROM customer_points_ledger
+     WHERE phone = ? AND activity_date = ?`,
+    [phone, activity.today],
+  );
+  const completedMissionIds = new Set(completedRows.map((row) => String(row.mission_id)));
+  const remaining = missions.length - missions.filter((mission) => completedMissionIds.has(String(mission.id))).length;
+
+  if (![0, 1, 2].includes(remaining)) return;
+
+  const isComplete = remaining === 0;
+  await createNotification({
+    connection: conn,
+    recipientRole: 'customer',
+    recipientId: phone,
+    title: isComplete ? 'Daily reward credited' : 'Daily mission reminder',
+    message: isComplete
+      ? "Congratulations! You have completed today's missions and your daily reward has been credited."
+      : `You're only ${remaining} mission${remaining === 1 ? '' : 's'} away from your daily reward. Complete ${remaining === 1 ? 'it' : 'them'} now!`,
+    type: isComplete ? 'success' : 'info',
+    eventKey: `daily-reward:${phone}:${activity.today}:${isComplete ? 'credited' : `remaining-${remaining}`}`,
+    actionUrl: '/customer/missions',
+    metadata: {
+      cycleDate: activity.today,
+      remainingMissions: remaining,
+      rewardStatus: isComplete ? 'credited' : 'in_progress',
+      actionLabel: isComplete
+        ? 'View daily reward'
+        : remaining === 2
+          ? 'Continue missions'
+          : 'Complete final mission',
+    },
+  });
 }
 
 async function recordCustomerLogin(phone) {
@@ -96,7 +133,7 @@ async function recordCustomerLogin(phone) {
       [phone],
     );
     const activity = await getCustomerMissionActivity(conn, phone);
-    await awardCompletedMissions(conn, phone, activity);
+    await awardCompletedMissions(conn, phone, activity, { notify: true });
     await conn.commit();
     return activity;
   } catch (error) {
@@ -112,7 +149,7 @@ async function refreshCustomerMissionAwards(phone) {
   try {
     await conn.beginTransaction();
     const activity = await getCustomerMissionActivity(conn, phone);
-    await awardCompletedMissions(conn, phone, activity);
+    await awardCompletedMissions(conn, phone, activity, { notify: true });
     await conn.commit();
     return activity;
   } catch (error) {
