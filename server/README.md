@@ -34,3 +34,23 @@ Supervisors can view a customer's mission reward history in Customer Directory b
 Customer notifications are stored in the `notifications` table and are addressed by the customer's phone number. The authenticated `GET /api/notifications` endpoint returns the latest notifications and unread count. Customers can mark one notification read with `PATCH /api/notifications/:id/read` or all notifications read with `POST /api/notifications/read-all`.
 
 Tier changes and daily mission progress create notifications from their source transactions. Mission reminders are emitted only at two or one remaining missions, and the daily reward notification is emitted once all active missions have been credited. Event keys include the customer and cycle date so repeated page loads do not repeat a notification.
+
+## Supervisor notifications
+
+Verified sign-ups and Daily Mission configuration changes notify all active supervisor accounts at the time of the event. The notification and source change are committed together. Notifications are private to each supervisor and use the same authenticated notification endpoints as customer notifications. The dashboard refreshes them periodically and when opened.
+
+Sign-up alerts link to the corresponding pending application and remain visible after being read, prioritized ahead of other alerts in the latest list. Their status reflects the current application status; a subsequent sign-up for the same phone marks earlier alerts as superseded. The pending applications queue remains available on the supervisor dashboard. Mission alerts identify the changed mission, the supervisor, and the time of the change, and link to Daily Mission settings. Existing events and supervisors created after an event are not backfilled.
+
+Daily mission points are credited automatically. Daily reward approvals, birthday freeplay approvals, and separate Daily Reward configuration are not currently implemented and therefore do not generate supervisor notifications.
+
+## Supervisor records pages
+
+The supervisor side menu links to dedicated Audit Log, Recent Transactions and Tier Configuration pages. `GET /api/supervisor/audit-logs` and `GET /api/supervisor/transactions` return paginated records (50 per page); transaction records include the player name and phone alongside transaction details. `GET /api/supervisor/tier-configuration` returns the saved tier names and minimum lifetime volumes without substituting defaults. Tier benefits are not currently stored as configuration. Supervisors can use the link on the tier page to edit thresholds and manual customer overrides on the dashboard.
+
+## Confirmed notification and records decisions
+
+- The notifications described above are delivered in-app only. Existing signup verification and review-decision SMS messages are separate from these notifications.
+- Daily mission rewards are credited automatically; daily reward approval notifications remain deferred. Birthday freeplay requests and approval notifications also remain deferred.
+- All active supervisors receive sign-up approval notifications. Future approval workflows should use the same recipient policy unless requirements change.
+- Every actual Daily Mission configuration change triggers an alert, regardless of which authorized supervisor made it; saving without changes does not.
+- Audit Log shows date/time, user, role, action, target and details. Recent Transactions shows player/account, transaction ID, type, amount, status and date/time. Both are sorted newest first and paginated, with no filters or export on these pages.

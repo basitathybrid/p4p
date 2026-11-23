@@ -35,6 +35,11 @@ export function AppLayout({ route, children }) {
     'Audit Logs': 'audit',
     Settings: 'settings',
   }
+  const supervisorPaths = {
+    'Audit Logs': '/supervisor/audit-logs',
+    Transactions: '/supervisor/transactions',
+    'Tier Configuration': '/supervisor/tiers',
+  }
   const [menuOpen, setMenuOpen] = useState(false)
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
   const [displayUser, setDisplayUser] = useState(currentRole.user)
@@ -51,6 +56,7 @@ export function AppLayout({ route, children }) {
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0)
   const [notificationsOpen, setNotificationsOpen] = useState(false)
   const [notificationsLoading, setNotificationsLoading] = useState(false)
+  const [notificationError, setNotificationError] = useState('')
   const menuRef = useRef(null)
   const notificationRef = useRef(null)
 
@@ -91,8 +97,7 @@ export function AppLayout({ route, children }) {
     if (!token) return undefined
 
     const controller = new AbortController()
-    setNotificationsLoading(true)
-    fetch(config.REST_API.Notifications.List, {
+    const loadNotifications = () => fetch(config.REST_API.Notifications.List, {
       headers: { Authorization: `Bearer ${token}` },
       signal: controller.signal,
     })
@@ -101,16 +106,23 @@ export function AppLayout({ route, children }) {
         if (!response.ok) throw new Error(data?.message || 'Unable to load notifications.')
         setNotifications(Array.isArray(data.notifications) ? data.notifications : [])
         setUnreadNotificationCount(Number(data.unreadCount) || 0)
+        setNotificationError('')
       })
       .catch((error) => {
-        if (!controller.signal.aborted) console.error('Unable to load notifications:', error)
+        if (!controller.signal.aborted) setNotificationError(error.message || 'Unable to load notifications.')
       })
       .finally(() => {
         if (!controller.signal.aborted) setNotificationsLoading(false)
       })
 
-    return () => controller.abort()
-  }, [route])
+    setNotificationsLoading(true)
+    loadNotifications()
+    const interval = window.setInterval(loadNotifications, 30000)
+    return () => {
+      controller.abort()
+      window.clearInterval(interval)
+    }
+  }, [route, notificationsOpen, location.pathname, location.search])
 
   useEffect(() => {
     const nextDisplayUser = { ...currentRole.user }
@@ -212,8 +224,6 @@ export function AppLayout({ route, children }) {
   const handleNotificationRead = async (notification) => {
     if (!notification.readAt) {
       const token = getAuthToken()
-      setNotifications((current) => current.map((item) => item.id === notification.id ? { ...item, readAt: new Date().toISOString() } : item))
-      setUnreadNotificationCount((count) => Math.max(0, count - 1))
 
       try {
         const response = await fetch(config.REST_API.Notifications.MarkRead(notification.id), {
@@ -221,27 +231,36 @@ export function AppLayout({ route, children }) {
           headers: { Authorization: `Bearer ${token}` },
         })
         if (!response.ok) throw new Error('Unable to mark notification read.')
+        setNotifications((current) => current.map((item) => item.id === notification.id ? { ...item, readAt: new Date().toISOString() } : item))
+        setUnreadNotificationCount((count) => Math.max(0, count - 1))
+        setNotificationError('')
       } catch (error) {
-        console.error('Unable to mark notification read:', error)
+        setNotificationError(error.message)
       }
     }
 
-    if (notification.actionUrl) navigate(notification.actionUrl)
+    if (notification.actionUrl) {
+      const target = notification.metadata?.approvalStatus === 'superseded'
+        ? '/supervisor#pending-applications'
+        : notification.actionUrl
+      setNotificationsOpen(false)
+      navigate(target)
+    }
   }
 
   const handleMarkAllNotificationsRead = async () => {
     const token = getAuthToken()
-    setNotifications((current) => current.map((item) => ({ ...item, readAt: item.readAt || new Date().toISOString() })))
-    setUnreadNotificationCount(0)
-
     try {
       const response = await fetch(config.REST_API.Notifications.MarkAllRead, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
       })
       if (!response.ok) throw new Error('Unable to mark notifications read.')
+      setNotifications((current) => current.map((item) => ({ ...item, readAt: item.readAt || new Date().toISOString() })))
+      setUnreadNotificationCount(0)
+      setNotificationError('')
     } catch (error) {
-      console.error('Unable to mark notifications read:', error)
+      setNotificationError(error.message)
     }
   }
 
@@ -338,9 +357,11 @@ export function AppLayout({ route, children }) {
           {(route === 'customer'
             ? customerSidebar
             : currentRole.sidebar.map((item, index) => ({
-              label: index === 0 ? 'Home' : item,
+              label: index === 0 ? 'Home' : route === 'supervisor' && item === 'Transactions' ? 'Recent Transactions' : item,
               icon: index === 0 ? 'home' : supervisorSidebar[item] || 'info',
-            to: item === 'Settings'
+            to: route === 'supervisor' && supervisorPaths[item]
+              ? supervisorPaths[item]
+              : item === 'Settings'
               ? `${currentRole.path}/settings`
               : item === 'Daily Missions'
                 ? `${currentRole.path}/missions`
@@ -350,7 +371,7 @@ export function AppLayout({ route, children }) {
             const isSettingsPage = location.pathname.endsWith('/settings')
             const isActive = isSettingsPage
               ? item.label === 'Settings'
-              : location.pathname === item.to
+              : location.pathname === item.to && (route !== 'supervisor' || item.to !== currentRole.path || item.label === 'Home')
             return (
               <NavLink
                 key={item.label}
@@ -416,6 +437,7 @@ export function AppLayout({ route, children }) {
                     <button type="button" onClick={handleMarkAllNotificationsRead} disabled={unreadNotificationCount === 0}>Mark all read</button>
                   </div>
                   <div className="notifications-list">
+                    {notificationError && <div className="notifications-empty" role="alert">{notificationError}</div>}
                     {notificationsLoading && <div className="notifications-empty">Loading notifications...</div>}
                     {!notificationsLoading && notifications.length === 0 && <div className="notifications-empty">You’re all caught up.</div>}
                     {!notificationsLoading && notifications.map((notification) => (
@@ -426,7 +448,12 @@ export function AppLayout({ route, children }) {
                         onClick={() => handleNotificationRead(notification)}
                       >
                         <span className="notification-item-title">{notification.title}</span>
-                        <span className="notification-item-message">{notification.message}</span>
+                        <span className="notification-item-message">{notification.metadata?.approvalStatus && notification.metadata.approvalStatus !== 'pending_review' ? 'This sign-up is no longer pending approval.' : notification.message}</span>
+                        {notification.metadata?.approvalStatus && (
+                          <span className="notification-item-date">{
+                            { pending_review: 'Pending approval', approved: 'Approved', rejected: 'Rejected', superseded: 'Superseded by a later sign-up', unavailable: 'Application unavailable' }[notification.metadata.approvalStatus]
+                          }</span>
+                        )}
                         {notification.metadata?.actionLabel && (
                           <span className="notification-item-action">{notification.metadata.actionLabel} <Icon name="arrowRight" /></span>
                         )}

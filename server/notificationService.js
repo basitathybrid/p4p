@@ -1,4 +1,5 @@
 const db = require('./db');
+const crypto = require('crypto');
 
 const SUPPORTED_ROLES = new Set(['customer', 'supervisor', 'basic']);
 
@@ -23,6 +24,11 @@ function mapNotification(row) {
     }
   }
 
+  if (metadata?.kind === 'signup') {
+    const status = metadata.superseded ? 'superseded' : row.application_status || 'unavailable';
+    metadata = { ...metadata, approvalStatus: status };
+  }
+
   return {
     id: Number(row.id),
     title: row.title,
@@ -34,6 +40,46 @@ function mapNotification(row) {
     readAt: row.read_at,
     createdAt: row.created_at,
   };
+}
+
+async function notifySupervisors({ connection = db, title, message, eventKey, actionUrl, metadata }) {
+  await connection.query(
+    `INSERT INTO notifications
+       (recipient_role, recipient_id, title, message, notification_type, event_key, action_url, metadata)
+     SELECT 'supervisor', CAST(id AS CHAR), ?, ?, 'info', ?, ?, ?
+     FROM supervisors WHERE is_active = 1`,
+    [title, message, eventKey, actionUrl, JSON.stringify(metadata)],
+  );
+}
+
+async function notifySignupPending(connection, phone) {
+  await connection.query(
+    `UPDATE notifications SET metadata = JSON_SET(metadata, '$.superseded', true)
+     WHERE recipient_role = 'supervisor'
+       AND JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.kind')) = 'signup'
+       AND JSON_UNQUOTE(JSON_EXTRACT(metadata, '$.phone')) = ?`,
+    [phone],
+  );
+  await notifySupervisors({
+    connection,
+    title: 'New player sign-up',
+    message: 'New player sign-up is pending approval.',
+    eventKey: `signup:${phone}:${crypto.randomUUID()}`,
+    actionUrl: `/supervisor?application=${encodeURIComponent(phone)}#pending-applications`,
+    metadata: { kind: 'signup', phone, actionLabel: 'Open pending sign-ups' },
+  });
+}
+
+async function notifyMissionChange(connection, actor, mission, change) {
+  const actorName = String(actor.name || actor.username || 'Supervisor').trim();
+  await notifySupervisors({
+    connection,
+    title: 'Daily Mission settings updated',
+    message: `Daily Mission: ${mission.title} (${change}) by ${actorName}.`,
+    eventKey: `mission-settings:${crypto.randomUUID()}`,
+    actionUrl: '/supervisor/missions',
+    metadata: { kind: 'mission_settings', section: 'Daily Mission', actor: actorName, missionId: mission.id, actionLabel: 'View updated settings' },
+  });
 }
 
 async function createNotification({
@@ -119,13 +165,29 @@ async function listNotifications(role, id, { limit = 30, unreadOnly = false } = 
   if (!recipient) throw new Error('Valid notification recipient is required.');
 
   const safeLimit = Math.min(Math.max(Number(limit) || 30, 1), 100);
+  const supervisor = recipient.recipientRole === 'supervisor';
+  const pendingSignup = `a.status = 'pending_review'
+       AND COALESCE(JSON_UNQUOTE(JSON_EXTRACT(n.metadata, '$.superseded')), 'false') <> 'true'`;
+  const recentFilter = supervisor
+    ? ` AND ((${pendingSignup}) OR n.id IN (
+        SELECT recent.id FROM (
+          SELECT id FROM notifications WHERE recipient_role = ? AND recipient_id = ?${unreadOnly ? ' AND read_at IS NULL' : ''}
+          ORDER BY created_at DESC, id DESC LIMIT ?
+        ) recent
+      ))`
+    : '';
   const [rows] = await db.query(
-    `SELECT id, title, message, notification_type, event_key, action_url, metadata, read_at, created_at
-     FROM notifications
-     WHERE recipient_role = ? AND recipient_id = ?${unreadOnly ? ' AND read_at IS NULL' : ''}
-     ORDER BY created_at DESC, id DESC
-     LIMIT ?`,
-    [recipient.recipientRole, recipient.recipientId, safeLimit],
+    `SELECT n.id, n.title, n.message, n.notification_type, n.event_key, n.action_url, n.metadata, n.read_at, n.created_at
+     ${supervisor ? ', a.status AS application_status' : ''}
+     FROM notifications n
+     ${supervisor ? `LEFT JOIN applications a ON JSON_UNQUOTE(JSON_EXTRACT(n.metadata, '$.kind')) = 'signup'
+       AND a.phone = JSON_UNQUOTE(JSON_EXTRACT(n.metadata, '$.phone'))` : ''}
+     WHERE n.recipient_role = ? AND n.recipient_id = ?${unreadOnly ? ' AND n.read_at IS NULL' : ''}${recentFilter}
+     ORDER BY ${supervisor ? `(CASE WHEN ${pendingSignup} THEN 0 ELSE 1 END), ` : ''}n.created_at DESC, n.id DESC
+     ${supervisor ? '' : 'LIMIT ?'}`,
+    supervisor
+      ? [recipient.recipientRole, recipient.recipientId, recipient.recipientRole, recipient.recipientId, safeLimit]
+      : [recipient.recipientRole, recipient.recipientId, safeLimit],
   );
   return rows.map(mapNotification);
 }
@@ -173,6 +235,8 @@ function recipientFromUser(user) {
 
 module.exports = {
   createNotification,
+  notifySignupPending,
+  notifyMissionChange,
   createTierChangeNotification,
   listNotifications,
   getUnreadCount,

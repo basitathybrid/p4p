@@ -5,6 +5,7 @@ import config from './config'
 import { CustomerPage } from './components/pages/CustomerDashboard'
 import { BasicUserPage } from './components/pages/BasicUserDashboard'
 import { SupervisorPage } from './components/pages/SupervisorDashboard'
+import { SupervisorAuditPage, SupervisorTransactionsPage, SupervisorTierPage } from './components/pages/SupervisorRecords'
 import { CustomerMissionsPage, SupervisorMissionsPage } from './components/pages/DailyMissions'
 import { CustomerSignupPage } from './components/pages/CustomerSignup'
 import { CustomerLoginPage } from './components/pages/CustomerLogin'
@@ -70,6 +71,9 @@ function App() {
       <Route path="/basic-user/settings" element={<ProtectedRoute allowedRole="basic"><BasicUserPage /></ProtectedRoute>} />
       <Route path="/supervisor" element={<ProtectedRoute allowedRole="supervisor"><SupervisorPage /></ProtectedRoute>} />
       <Route path="/supervisor/missions" element={<ProtectedRoute allowedRole="supervisor"><SupervisorMissionsPage /></ProtectedRoute>} />
+      <Route path="/supervisor/audit-logs" element={<ProtectedRoute allowedRole="supervisor"><SupervisorAuditPage /></ProtectedRoute>} />
+      <Route path="/supervisor/transactions" element={<ProtectedRoute allowedRole="supervisor"><SupervisorTransactionsPage /></ProtectedRoute>} />
+      <Route path="/supervisor/tiers" element={<ProtectedRoute allowedRole="supervisor"><SupervisorTierPage /></ProtectedRoute>} />
       <Route path="/supervisor/settings" element={<ProtectedRoute allowedRole="supervisor"><SupervisorPage /></ProtectedRoute>} />
       <Route path="/signup" element={<CustomerSignupPage />} />
       <Route path="/login" element={<CustomerLoginPage />} />

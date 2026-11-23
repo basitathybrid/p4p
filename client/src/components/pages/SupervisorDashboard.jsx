@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import * as XLSX from 'xlsx'
 import roles, { tierMap } from '../../data/roles'
 import config from '../../config'
@@ -97,6 +98,7 @@ function buildApprovedCustomersWorkbook(rows) {
 }
 
 function SupervisorTable({ onStatusCountsChange }) {
+  const location = useLocation()
   const [applications, setApplications] = useState([])
   const [approvedCustomers, setApprovedCustomers] = useState([])
   const [selectedPhone, setSelectedPhone] = useState('')
@@ -201,12 +203,15 @@ function SupervisorTable({ onStatusCountsChange }) {
       setStatusCounts(nextStatusCounts)
       onStatusCountsChange(nextStatusCounts)
 
-      const nextSelectedPhone = preferredPhone && pendingApplications.some((item) => item.phone === preferredPhone)
-        ? preferredPhone
+      const requestedApplication = preferredPhone && allApplications.find((item) => item.phone === preferredPhone)
+      const nextSelectedPhone = preferredPhone
+        ? pendingApplications.some((item) => item.phone === preferredPhone) ? preferredPhone : ''
         : pendingApplications[0]?.phone || ''
 
       setSelectedPhone(nextSelectedPhone)
-      setStatus({ type: 'idle', message: '' })
+      setStatus(preferredPhone && !nextSelectedPhone
+        ? { type: 'info', message: requestedApplication ? `This application is already ${requestedApplication.status}.` : 'This application is no longer available.' }
+        : { type: 'idle', message: '' })
     } catch (error) {
       setApplications([])
       onStatusCountsChange({ submitted: 0, pendingReview: 0, decided: 0, active: 0 })
@@ -219,8 +224,12 @@ function SupervisorTable({ onStatusCountsChange }) {
   }
 
   useEffect(() => {
-    loadApplications()
-  }, [])
+    const phone = new URLSearchParams(location.search).get('application')
+    loadApplications(phone)
+    if (['#pending-applications', '#tier-configuration'].includes(location.hash)) {
+      document.getElementById(location.hash.slice(1))?.scrollIntoView()
+    }
+  }, [location.search, location.hash, location.key])
 
   useEffect(() => {
     fetch(config.REST_API.Tiers.Thresholds, { headers: SUPERVISOR_HEADERS() })
@@ -507,7 +516,7 @@ function SupervisorTable({ onStatusCountsChange }) {
     <>
     <div className="supervisor-layout">
       <div className="supervisor-main">
-        <div className="supervisor-queue card-light">
+        <div className="supervisor-queue card-light" id="pending-applications">
           <div className="section-title-row">
             <h3>Pending Applications</h3>
             <span className="secondary-badge">{applications.length}</span>
@@ -655,7 +664,7 @@ function SupervisorTable({ onStatusCountsChange }) {
           <button className="ghost-link block-link">View upload history</button>
         </div>
 
-        <div className="threshold-panel card-light">
+        <div className="threshold-panel card-light" id="tier-configuration">
           <div className="threshold-header">
             <h3>Lifetime Tier Thresholds</h3>
             <button className="edit-btn" onClick={saveThresholds} disabled={savingThresholds}>

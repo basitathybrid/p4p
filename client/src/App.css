@@ -5363,6 +5363,11 @@ button {
   min-width: 0;
 }
 
+.supervisor-shell .page-header > h1 {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
 .supervisor-profile-upload {
   position: relative;
   flex: 0 0 auto;

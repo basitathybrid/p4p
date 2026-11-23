@@ -20,13 +20,6 @@ function formatDetails(value) {
     }
   }
   if (!details || typeof details !== 'object') return '—'
-  if (details.changes) return `Edited: ${Object.keys(details.changes).join(', ')}`
-  if (details.newTier) return `${details.previousTier || 'No tier'} to ${details.newTier} (${String(details.reason || '').replaceAll('_', ' ')})`
-  if (details.recordCount !== undefined) return `${details.recordCount} records exported as ${details.format || 'CSV'}`
-  if (details.imported !== undefined) return `${details.imported} imported, ${details.duplicates || 0} duplicates, ${details.unmatched || 0} unmatched`
-  if (details.decision) return `Decision: ${formatAction(details.decision)}`
-  if (details.page) return `Profile page ${details.page} viewed`
-  if (details.thresholds) return 'Tier thresholds updated'
   return Object.keys(details).length ? JSON.stringify(details) : '—'
 }
 
@@ -51,6 +44,7 @@ export function SupervisorAuditLog() {
     const token = localStorage.getItem('p4p_supervisor_token')
     const controller = new AbortController()
     setLoading(true)
+    setError('')
     fetch(`${config.REST_API.Supervisor.AuditLogs}?page=${page}`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {},
       signal: controller.signal,
@@ -88,13 +82,13 @@ export function SupervisorAuditLog() {
             <thead><tr><th>Date / Time</th><th>Internal User</th><th>Role</th><th>Action</th><th>Customer / Target</th><th>Details</th></tr></thead>
             <tbody>
               {!loading && !error && logs.length === 0 && <tr><td colSpan="6">No audit events have been recorded.</td></tr>}
-              {logs.map((log) => (
+              {!loading && !error && logs.map((log) => (
                 <tr key={log.id}>
                   <td>{formatDate(log.createdAt)}</td>
                   <td>{log.actorName}</td>
                   <td>{formatAction(log.actorRole)}</td>
                   <td>{formatAction(log.action)}</td>
-                  <td>{log.targetId || formatAction(log.targetType)}</td>
+                  <td>{formatAction(log.targetType)}{log.targetId ? `: ${log.targetId}` : ''}</td>
                   <td className="supervisor-audit-details">{formatDetails(log.details)}</td>
                 </tr>
               ))}
@@ -104,9 +98,9 @@ export function SupervisorAuditLog() {
         </div>
         {pagination.pageCount > 1 && (
           <div className="supervisor-audit-pagination">
-            <button type="button" onClick={() => setPage((current) => Math.max(1, current - 1))} disabled={loading || page <= 1}>Previous</button>
+            <button type="button" onClick={() => setPage(pagination.page - 1)} disabled={loading || pagination.page <= 1}>Previous</button>
             <span>Page {pagination.page} of {pagination.pageCount}</span>
-            <button type="button" onClick={() => setPage((current) => Math.min(pagination.pageCount, current + 1))} disabled={loading || page >= pagination.pageCount}>Next</button>
+            <button type="button" onClick={() => setPage(pagination.page + 1)} disabled={loading || pagination.page >= pagination.pageCount}>Next</button>
           </div>
         )}
       </div>

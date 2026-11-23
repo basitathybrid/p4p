@@ -16,6 +16,7 @@ const {
   markNotificationRead,
   markAllNotificationsRead,
   createTierChangeNotification,
+  notifyMissionChange,
 } = require('./notificationService');
 const {
   recordCustomerLogin,
@@ -124,6 +125,22 @@ function validateDailyMissionPayload(payload = {}) {
         : `Complete ${target} transactions`,
     },
   };
+}
+
+async function changeMission(actor, operation) {
+  const conn = await db.getConnection();
+  try {
+    await conn.beginTransaction();
+    const result = await operation(conn);
+    if (result?.change) await notifyMissionChange(conn, actor, result.mission, result.change);
+    await conn.commit();
+    return result?.mission || null;
+  } catch (error) {
+    await conn.rollback();
+    throw error;
+  } finally {
+    conn.release();
+  }
 }
 
 async function loginSupervisor(identifier, password) {
@@ -587,18 +604,21 @@ app.post('/api/supervisor/missions', requireSupervisorAuth, async (req, res) => 
 
   try {
     const { title, description, missionType, target, rewardPoints, status } = validation.value;
-    const [result] = await db.query(
-      `INSERT INTO daily_missions
-         (title, description, mission_type, target, reward_points, status, created_by)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [title, description, missionType, target, rewardPoints, status, req.user.id],
-    );
-    const [rows] = await db.query(
-      `SELECT id, title, description, mission_type, target, reward_points, status, icon, tone
-       FROM daily_missions WHERE id = ? LIMIT 1`,
-      [result.insertId],
-    );
-    return res.status(201).json({ success: true, mission: formatDailyMission(rows[0]) });
+    const mission = await changeMission(req.user, async (conn) => {
+      const [result] = await conn.query(
+        `INSERT INTO daily_missions
+           (title, description, mission_type, target, reward_points, status, created_by)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [title, description, missionType, target, rewardPoints, status, req.user.id],
+      );
+      const [rows] = await conn.query(
+        `SELECT id, title, description, mission_type, target, reward_points, status, icon, tone
+         FROM daily_missions WHERE id = ? LIMIT 1`,
+        [result.insertId],
+      );
+      return { mission: formatDailyMission(rows[0]), change: 'created' };
+    });
+    return res.status(201).json({ success: true, mission });
   } catch (error) {
     console.error('create daily mission failed:', error);
     return res.status(500).json({ success: false, code: 'SERVER_ERROR', message: 'Unable to create daily mission.' });
@@ -618,21 +638,33 @@ app.put('/api/supervisor/missions/:id', requireSupervisorAuth, async (req, res) 
 
   try {
     const { title, description, missionType, target, rewardPoints, status } = validation.value;
-    await db.query(
-      `UPDATE daily_missions
-       SET title = ?, description = ?, mission_type = ?, target = ?, reward_points = ?, status = ?
-       WHERE id = ?`,
-      [title, description, missionType, target, rewardPoints, status, id],
-    );
-    const [rows] = await db.query(
-      `SELECT id, title, description, mission_type, target, reward_points, status, icon, tone
-       FROM daily_missions WHERE id = ? LIMIT 1`,
-      [id],
-    );
-    if (!rows[0]) {
+    const mission = await changeMission(req.user, async (conn) => {
+      const [existing] = await conn.query(
+        'SELECT id, title, description, mission_type, target, reward_points, status, icon, tone FROM daily_missions WHERE id = ? FOR UPDATE',
+        [id],
+      );
+      if (!existing[0]) return null;
+      const previous = existing[0];
+      const changed = previous.title !== title || previous.description !== description
+        || previous.mission_type !== missionType || Number(previous.target) !== target
+        || Number(previous.reward_points) !== rewardPoints || previous.status !== status;
+      await conn.query(
+        `UPDATE daily_missions
+         SET title = ?, description = ?, mission_type = ?, target = ?, reward_points = ?, status = ?
+         WHERE id = ?`,
+        [title, description, missionType, target, rewardPoints, status, id],
+      );
+      const [rows] = await conn.query(
+        `SELECT id, title, description, mission_type, target, reward_points, status, icon, tone
+         FROM daily_missions WHERE id = ? LIMIT 1`,
+        [id],
+      );
+      return { mission: formatDailyMission(rows[0]), change: changed ? 'updated' : null };
+    });
+    if (!mission) {
       return res.status(404).json({ success: false, code: 'NOT_FOUND', message: 'Daily mission not found.' });
     }
-    return res.status(200).json({ success: true, mission: formatDailyMission(rows[0]) });
+    return res.status(200).json({ success: true, mission });
   } catch (error) {
     console.error('update daily mission failed:', error);
     return res.status(500).json({ success: false, code: 'SERVER_ERROR', message: 'Unable to update daily mission.' });
@@ -647,16 +679,23 @@ app.patch('/api/supervisor/missions/:id/status', requireSupervisorAuth, async (r
   }
 
   try {
-    await db.query('UPDATE daily_missions SET status = ? WHERE id = ?', [status, id]);
-    const [rows] = await db.query(
-      `SELECT id, title, description, mission_type, target, reward_points, status, icon, tone
-       FROM daily_missions WHERE id = ? LIMIT 1`,
-      [id],
-    );
-    if (!rows[0]) {
+    const mission = await changeMission(req.user, async (conn) => {
+      const [existing] = await conn.query(
+        'SELECT id, status FROM daily_missions WHERE id = ? FOR UPDATE', [id],
+      );
+      if (!existing[0]) return null;
+      await conn.query('UPDATE daily_missions SET status = ? WHERE id = ?', [status, id]);
+      const [rows] = await conn.query(
+        `SELECT id, title, description, mission_type, target, reward_points, status, icon, tone
+         FROM daily_missions WHERE id = ? LIMIT 1`,
+        [id],
+      );
+      return { mission: formatDailyMission(rows[0]), change: existing[0].status !== status ? `status changed to ${status}` : null };
+    });
+    if (!mission) {
       return res.status(404).json({ success: false, code: 'NOT_FOUND', message: 'Daily mission not found.' });
     }
-    return res.status(200).json({ success: true, mission: formatDailyMission(rows[0]) });
+    return res.status(200).json({ success: true, mission });
   } catch (error) {
     console.error('update daily mission status failed:', error);
     return res.status(500).json({ success: false, code: 'SERVER_ERROR', message: 'Unable to update daily mission status.' });
@@ -1188,6 +1227,39 @@ app.get('/api/supervisor/audit-logs', requireSupervisorAuth, async (req, res) =>
   } catch (error) {
     console.error('load audit logs failed:', error);
     return res.status(500).json({ success: false, code: 'SERVER_ERROR', message: 'Unable to load audit logs.' });
+  }
+});
+
+app.get('/api/supervisor/transactions', requireSupervisorAuth, async (req, res) => {
+  const requestedPage = Number.parseInt(req.query.page, 10) || 1;
+  const pageSize = 50;
+  try {
+    const [[{ total }]] = await db.query('SELECT COUNT(*) AS total FROM transactions');
+    const pageCount = Math.max(1, Math.ceil(Number(total) / pageSize));
+    const page = Math.min(Math.max(requestedPage, 1), pageCount);
+    const [transactions] = await db.query(
+      `SELECT t.transaction_id AS transactionId, t.phone, a.name AS playerName,
+              t.transaction_type AS type, t.transaction_amount AS amount,
+              t.transaction_status AS status, t.transaction_datetime AS transactionDate
+       FROM transactions t LEFT JOIN applications a ON a.phone = t.phone
+       ORDER BY t.transaction_datetime DESC, t.transaction_id DESC
+       LIMIT ? OFFSET ?`,
+      [pageSize, (page - 1) * pageSize],
+    );
+    return res.status(200).json({ success: true, transactions, pagination: { page, pageSize, pageCount, total: Number(total) } });
+  } catch (error) {
+    console.error('load supervisor transactions failed:', error);
+    return res.status(500).json({ success: false, code: 'SERVER_ERROR', message: 'Unable to load transactions.' });
+  }
+});
+
+app.get('/api/supervisor/tier-configuration', requireSupervisorAuth, async (req, res) => {
+  try {
+    const [tiers] = await db.query('SELECT tier_name AS name, minimum_volume AS minimum FROM tier_thresholds ORDER BY minimum_volume ASC, tier_name ASC');
+    return res.status(200).json({ success: true, tiers });
+  } catch (error) {
+    console.error('load supervisor tier configuration failed:', error);
+    return res.status(500).json({ success: false, code: 'SERVER_ERROR', message: 'Unable to load tier configuration.' });
   }
 });
 

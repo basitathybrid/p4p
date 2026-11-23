@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 const db = require('./db');
+const { notifySignupPending } = require('./notificationService');
 
 const MAX_ATTEMPTS = 3;
 const MIN_PASSWORD_LENGTH = 8;
@@ -218,6 +219,7 @@ async function verifySignupOtp(phone, otpCode, twilioVerified = false) {
   const conn = await db.getConnection();
 
   try {
+    await conn.beginTransaction();
     await conn.query(
       'CALL sp_verify_otp(?, ?, ?, ?, ?, @p_result_code, @p_attempts, @p_locked, @p_retry_after_seconds)',
       [normalizedPhone, twilioVerified ? TWILIO_VERIFIED_OTP : otpCode == null ? '' : String(otpCode), MAX_ATTEMPTS, SESSION_TTL_SECONDS, LOCKOUT_SECONDS]
@@ -230,6 +232,7 @@ async function verifySignupOtp(phone, otpCode, twilioVerified = false) {
     const attempts = outParams.attempts || 0;
 
     if (outParams.result_code !== 'OK') {
+      await conn.commit();
       return {
         success: false,
         code: outParams.result_code,
@@ -239,7 +242,10 @@ async function verifySignupOtp(phone, otpCode, twilioVerified = false) {
       };
     }
 
-    const application = await getApplication(normalizedPhone);
+    await notifySignupPending(conn, normalizedPhone);
+    const [rows] = await conn.query('SELECT * FROM applications WHERE phone = ?', [normalizedPhone]);
+    const application = mapApplicationRow(rows[0]);
+    await conn.commit();
 
     return {
       success: true,
@@ -248,6 +254,9 @@ async function verifySignupOtp(phone, otpCode, twilioVerified = false) {
       attempts,
       application,
     };
+  } catch (error) {
+    await conn.rollback();
+    throw error;
   } finally {
     conn.release();
   }

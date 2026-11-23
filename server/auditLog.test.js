@@ -5,7 +5,7 @@ process.env.JWT_SECRET = 'audit-log-test-secret';
 
 const db = require('./db');
 const { app } = require('./index');
-const { signBasicUserToken, signSupervisorToken } = require('./auth');
+const { signBasicUserToken, signSupervisorToken, signCustomerToken } = require('./auth');
 const { writeAuditLog } = require('./auditLog');
 
 test('profile view audit writes use a stable unique event key for request retries', async () => {
@@ -35,6 +35,47 @@ test('profile view audit writes use a stable unique event key for request retrie
     assert.equal(statements.filter(({ sql }) => sql.includes('GET_LOCK')).length, 2);
   } finally {
     db.getConnection = originalGetConnection;
+  }
+});
+
+test('audit records are supervisor-only, ordered and paginated with all record details', async () => {
+  const originalQuery = db.query;
+  const queries = [];
+  db.query = async (sql, params = []) => {
+    queries.push({ sql, params });
+    if (sql.includes('COUNT(*) AS total FROM audit_logs')) return [[{ total: 101 }]];
+    if (sql.includes('FROM audit_logs')) return [[{
+      id: 8, actorId: 4, actorName: 'Casey Supervisor', actorRole: 'supervisor',
+      action: 'customer_profile_updated', targetType: 'customer', targetId: '19195550147',
+      details: { changes: { name: { old: 'Old', new: 'New' } } }, createdAt: '2026-11-23T12:00:00Z',
+    }]];
+    throw new Error(`Unexpected query: ${sql}`);
+  };
+  const server = app.listen(0, '127.0.0.1');
+  await new Promise((resolve) => server.once('listening', resolve));
+  const base = `http://127.0.0.1:${server.address().port}/api/supervisor/audit-logs`;
+  const headers = (token) => ({ Authorization: `Bearer ${token}` });
+  try {
+    assert.equal((await fetch(base)).status, 401);
+    for (const token of [signCustomerToken('19195550147'), signBasicUserToken({ id: 4 })]) {
+      assert.equal((await fetch(base, { headers: headers(token) })).status, 403);
+    }
+    assert.equal(queries.length, 0);
+    const response = await fetch(`${base}?page=99`, { headers: headers(signSupervisorToken({ id: 4 })) });
+    assert.equal(response.status, 200);
+    const body = await response.json();
+    assert.deepEqual(body.pagination, { page: 3, pageSize: 50, pageCount: 3, total: 101 });
+    assert.deepEqual(body.logs[0], {
+      id: 8, actorId: 4, actorName: 'Casey Supervisor', actorRole: 'supervisor',
+      action: 'customer_profile_updated', targetType: 'customer', targetId: '19195550147',
+      details: { changes: { name: { old: 'Old', new: 'New' } } }, createdAt: '2026-11-23T12:00:00Z',
+    });
+    assert.deepEqual(queries[1].params, [50, 100]);
+    assert.match(queries[1].sql, /ORDER BY created_at DESC, id DESC/);
+    assert.doesNotMatch(queries[1].sql, /WHERE/i);
+  } finally {
+    db.query = originalQuery;
+    await new Promise((resolve) => server.close(resolve));
   }
 });
 

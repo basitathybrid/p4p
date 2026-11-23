@@ -32,6 +32,8 @@ const config = {
       Customers: `${ROOT_URL}supervisor/customers`,
       MissionRewards: (phone) => `${ROOT_URL}supervisor/customers/${encodeURIComponent(phone)}/mission-rewards`,
       AuditLogs: `${ROOT_URL}supervisor/audit-logs`,
+      Transactions: `${ROOT_URL}supervisor/transactions`,
+      TierConfiguration: `${ROOT_URL}supervisor/tier-configuration`,
       Missions: `${ROOT_URL}supervisor/missions`,
     },
     Signup: {
