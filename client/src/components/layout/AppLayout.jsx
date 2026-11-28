@@ -20,7 +20,7 @@ export function AppLayout({ route, children }) {
     { label: 'Birthday Freeplay', icon: 'gift', to: '/customer' },
     { label: 'My Profile', icon: 'user', to: '/customer' },
     { label: 'Settings', icon: 'settings', to: '/customer/settings' },
-    { label: 'Chat With Us', icon: 'headset', to: '/customer' },
+    { label: 'Chat With Us', icon: 'headset', to: '/customer/chat' },
     { label: 'FAQ', icon: 'question', to: '/customer' },
   ]
   const supervisorSidebar = {
@@ -33,6 +33,7 @@ export function AppLayout({ route, children }) {
     'Daily Missions': 'spark',
     Reports: 'reports',
     'Audit Logs': 'audit',
+    'Support Chat': 'headset',
     Settings: 'settings',
   }
   const supervisorPaths = {
@@ -361,6 +362,8 @@ export function AppLayout({ route, children }) {
               icon: index === 0 ? 'home' : supervisorSidebar[item] || 'info',
             to: route === 'supervisor' && supervisorPaths[item]
               ? supervisorPaths[item]
+              : item === 'Support Chat'
+              ? `${currentRole.path}/chat`
               : item === 'Settings'
               ? `${currentRole.path}/settings`
               : item === 'Daily Missions'

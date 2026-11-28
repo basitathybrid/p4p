@@ -15,6 +15,9 @@ const config = {
       MarkRead: (id) => `${ROOT_URL}notifications/${encodeURIComponent(id)}/read`,
       MarkAllRead: `${ROOT_URL}notifications/read-all`,
     },
+    Support: {
+      Base: `${ROOT_URL}support`,
+    },
     Customer: {
       Session: `${ROOT_URL}customer/session`,
       Profile: `${ROOT_URL}customer/profile`,

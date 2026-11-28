@@ -31,6 +31,7 @@ const {
   openProfileImage,
 } = require('./services/profileImageStorage');
 const { getSupervisorProfile, setSupervisorProfileImage } = require('./services/supervisorProfileService');
+const { router: supportChatRouter, startChatRetention } = require('./supportChat');
 const {
   createSignupSession,
   verifySignupOtp,
@@ -51,6 +52,7 @@ const PORT = process.env.PORT || 5000;
 const profileImageBodyParser = express.raw({ type: '*/*', limit: MAX_PROFILE_IMAGE_BYTES });
 
 app.use(cors());
+app.use('/api/support', supportChatRouter);
 app.use(express.json());
 app.use(express.text({ type: ['text/csv', 'application/csv'] }));
 
@@ -1723,6 +1725,7 @@ app.use((error, req, res, next) => {
 
 async function startServer() {
   await migrateDatabase();
+  startChatRetention();
   app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });

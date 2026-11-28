@@ -271,6 +271,27 @@ const MIGRATIONS = [
       `);
     },
   },
+  {
+    id: '014_support_chat',
+    async up(conn) {
+      await conn.query(`
+        CREATE TABLE IF NOT EXISTS support_messages (
+          id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+          customer_phone VARCHAR(20) NOT NULL,
+          sender_role ENUM('customer', 'supervisor', 'basic') NOT NULL,
+          sender_name VARCHAR(255) NOT NULL,
+          body TEXT NULL,
+          attachment_name VARCHAR(255) NULL,
+          attachment_type VARCHAR(64) NULL,
+          attachment_data LONGBLOB NULL,
+          created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          INDEX idx_support_customer_id (customer_phone, id),
+          INDEX idx_support_created_at (created_at),
+          CONSTRAINT fk_support_customer FOREIGN KEY (customer_phone) REFERENCES applications(phone)
+        )
+      `);
+    },
+  },
 ];
 
 async function migrateDatabase() {

@@ -26,7 +26,7 @@ export const roles = {
   basic: {
     name: 'Basic User',
     path: '/basic-user',
-    sidebar: ['Dashboard', 'Customers', 'Transactions', 'Rewards & Tiers', 'Usage Summary', 'Reports', 'Audit Logs', 'Settings'],
+    sidebar: ['Dashboard', 'Customers', 'Transactions', 'Rewards & Tiers', 'Usage Summary', 'Reports', 'Audit Logs', 'Support Chat', 'Settings'],
     user: { name: 'Jordan Lee', role: 'PayFe Basic User' },
     stats: [
       { title: 'Total Approved Customers', value: '0', percent: '0% Approved', tone: 'blue' },
@@ -71,7 +71,7 @@ export const roles = {
   supervisor: {
     name: 'Supervisor',
     path: '/supervisor',
-    sidebar: ['Dashboard', 'Pending Approvals', 'Transactions', 'Tier Configuration', 'Daily Missions', 'Game Credit Points', 'Game credit requests', 'Reports', 'Audit Logs', 'Settings'],
+    sidebar: ['Dashboard', 'Pending Approvals', 'Transactions', 'Tier Configuration', 'Daily Missions', 'Game Credit Points', 'Game credit requests', 'Reports', 'Audit Logs', 'Support Chat', 'Settings'],
     user: { name: 'Maria Rodriguez', role: 'Supervisor' },
     stats: [
       { title: 'Pending Applications', value: '0', note: 'Queue is clear', tone: 'blue' },

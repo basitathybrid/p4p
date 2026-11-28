@@ -3,5 +3,5 @@ window.__APP_CONFIG__ = {
   API_URL: 'http://localhost:5000/api/',
   // LiveChat license ID (Settings -> Channels -> Chat widget -> Install LiveChat in app.livechat.com).
   // Leave empty to disable the chat widget.
-  LIVECHAT_LICENSE_ID: '',
+  LIVECHAT_LICENSE_ID: '19767691',
 };

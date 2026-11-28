@@ -35,6 +35,14 @@ Customer notifications are stored in the `notifications` table and are addressed
 
 Tier changes and daily mission progress create notifications from their source transactions. Mission reminders are emitted only at two or one remaining missions, and the daily reward notification is emitted once all active missions have been credited. Event keys include the customer and cycle date so repeated page loads do not repeat a notification.
 
+## In-app support chat
+
+This chat is separate from the LiveChat widget. Approved customers start a conversation from **Chat With Us**; supervisors and basic users share the **Support Chat** inbox and may reply to existing customer conversations. Customer access is limited to the authenticated customer's thread. History and inbox results are loaded in pages of 50. Messages contain text of up to 4,000 characters or one JPEG, PNG, GIF, WebP or PDF attachment, up to 50 MiB. Attachments are stored in the database and served only through authenticated downloads. A text message and an attachment sent together are saved as two messages.
+
+Server startup applies the `014_support_chat` migration. Messages and attachment bytes become inaccessible 30 days after their individual send time. An hourly server job also deletes expired rows in batches, starting on server startup; failures are logged and retried on the next run. Physical deletion can therefore lag expiration, especially while the server is down. Existing database backup retention remains unchanged.
+
+The realtime stream uses bearer-authenticated HTTP and reconnects with a history refresh after interruption. It uses in-process fan-out and requires one server instance per environment. Configure any reverse proxy to support long-lived streaming responses without buffering and permit uploads of at least 50 MiB. Set MySQL `max_allowed_packet` to at least 64 MiB on the database server, including replicas; ensure sufficient database space and server memory for concurrent 50 MiB uploads and downloads. Review database capacity, backup size, proxy timeouts and access controls before deployment. For example, check the database setting with `SELECT @@max_allowed_packet`; a lower setting can cause attachment uploads to fail.
+
 ## Supervisor notifications
 
 Verified sign-ups and Daily Mission configuration changes notify all active supervisor accounts at the time of the event. The notification and source change are committed together. Notifications are private to each supervisor and use the same authenticated notification endpoints as customer notifications. The dashboard refreshes them periodically and when opened.

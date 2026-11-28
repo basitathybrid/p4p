@@ -12,6 +12,7 @@ import { CustomerLoginPage } from './components/pages/CustomerLogin'
 import { SupervisorLoginPage } from './components/pages/SupervisorLogin'
 import { BasicUserLoginPage } from './components/pages/BasicUserLogin'
 import LiveChatWidget from './components/ui/LiveChatWidget'
+import { SupportChatPage } from './components/pages/SupportChat'
 
 function ProtectedRoute({ children, allowedRole }) {
   const role = localStorage.getItem('p4p_user_role')
@@ -66,10 +67,13 @@ function App() {
       <Route path="/" element={<Navigate to="/signup" replace />} />
       <Route path="/customer" element={<ProtectedRoute allowedRole="customer"><CustomerPage /></ProtectedRoute>} />
       <Route path="/customer/missions" element={<ProtectedRoute allowedRole="customer"><CustomerMissionsPage /></ProtectedRoute>} />
+      <Route path="/customer/chat" element={<ProtectedRoute allowedRole="customer"><SupportChatPage role="customer" /></ProtectedRoute>} />
       <Route path="/customer/settings" element={<ProtectedRoute allowedRole="customer"><CustomerPage /></ProtectedRoute>} />
       <Route path="/basic-user" element={<ProtectedRoute allowedRole="basic"><BasicUserPage /></ProtectedRoute>} />
+      <Route path="/basic-user/chat" element={<ProtectedRoute allowedRole="basic"><SupportChatPage role="basic" /></ProtectedRoute>} />
       <Route path="/basic-user/settings" element={<ProtectedRoute allowedRole="basic"><BasicUserPage /></ProtectedRoute>} />
       <Route path="/supervisor" element={<ProtectedRoute allowedRole="supervisor"><SupervisorPage /></ProtectedRoute>} />
+      <Route path="/supervisor/chat" element={<ProtectedRoute allowedRole="supervisor"><SupportChatPage role="supervisor" /></ProtectedRoute>} />
       <Route path="/supervisor/missions" element={<ProtectedRoute allowedRole="supervisor"><SupervisorMissionsPage /></ProtectedRoute>} />
       <Route path="/supervisor/audit-logs" element={<ProtectedRoute allowedRole="supervisor"><SupervisorAuditPage /></ProtectedRoute>} />
       <Route path="/supervisor/transactions" element={<ProtectedRoute allowedRole="supervisor"><SupervisorTransactionsPage /></ProtectedRoute>} />
